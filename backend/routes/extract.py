@@ -51,7 +51,7 @@ async def extract_resume(
     """
     print(f"[Fillosophy /extract] Received: {file.filename!r}, profile: {profile_name!r}")
 
-    # ── Step 1: validate PDF ──────────────────────────────────────────────────
+    # Step 1: validate PDF
     is_pdf_mime     = (file.content_type or "").lower() == "application/pdf"
     is_pdf_filename = (file.filename or "").lower().endswith(".pdf")
 
@@ -65,11 +65,11 @@ async def extract_resume(
             detail="Only PDF files are accepted.",
         )
 
-    # ── Step 2: read file bytes ───────────────────────────────────────────────
+    # Step 2: read file bytes
     contents = await file.read()
     print(f"[Fillosophy /extract] Read {len(contents):,} bytes from '{file.filename}'")
 
-    # ── Step 3: extract raw text from PDF ────────────────────────────────────
+    # Step 3: extract raw text from PDF
     try:
         raw_text = extract_text_from_pdf(contents)
     except ValueError as exc:
@@ -81,7 +81,7 @@ async def extract_resume(
 
     print(f"[Fillosophy /extract] PDF parsed: {len(raw_text)} chars")
 
-    # ── Step 4: AI profile extraction via Claude ──────────────────────────────
+    # Step 4: AI profile extraction via Claude
     try:
         profile_data = extract_profile_from_text(raw_text)
     except (RuntimeError, ValueError) as exc:
@@ -93,7 +93,7 @@ async def extract_resume(
 
     print(f"[Fillosophy /extract] AI extraction complete: {profile_name}")
 
-    # ── Step 5: persist profile to the active database backend ───────────────
+    # Step 5: persist profile to the active database backend
     try:
         save_profile(profile_name, profile_data)
     except RuntimeError as exc:
@@ -105,7 +105,7 @@ async def extract_resume(
 
     print(f"[Fillosophy /extract] Profile saved to DB: {profile_name}")
 
-    # ── Step 6: return structured result ─────────────────────────────────────
+    # Step 6: return structured result
     return {
         "status":       "success",
         "profile_name": profile_name,

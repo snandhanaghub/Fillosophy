@@ -20,14 +20,14 @@ from database.profiles import save_profile, get_profile, list_profiles, delete_p
 router = APIRouter()
 
 
-# ─── Request schemas ──────────────────────────────────────────
+# Request schemas
 
 class ImportRequest(BaseModel):
     profile_name: str
     profile_data: dict
 
 
-# ─── Endpoints ────────────────────────────────────────────────
+# Endpoints
 
 @router.post("/import")
 def import_profile(body: ImportRequest):

@@ -19,7 +19,7 @@ else:
     print("[Fillosophy DB] Using SQLite backend")
 
 
-# ─── Top-level forwarding functions ───────────────────────────────────────────
+# Top-level forwarding functions
 # Routes import these — never the concrete implementations directly.
 
 def init_db() -> None:

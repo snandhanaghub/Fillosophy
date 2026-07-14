@@ -20,12 +20,12 @@ import re
 import time
 import httpx
 
-# ─── Logging ──────────────────────────────────────────────────────────────────
+# Logging
 
 logger = logging.getLogger(__name__)
 LOG_PREFIX = "[Fillosophy AI]"
 
-# ─── Mock mode ────────────────────────────────────────────────────────────────
+# Mock mode
 # MOCK_AI=true  → free, instant, offline — no API key required
 # MOCK_AI=false → real API call (default)
 
@@ -175,7 +175,7 @@ def _get_completion(system_prompt: str, user_message: str, context: str) -> str:
     # If we get here, all providers failed
     raise RuntimeError(f"All AI providers failed. Last error: {last_exc}")
 
-# ─── Client setup ─────────────────────────────────────────────────────────────
+# Client setup
 # The Anthropic client is only created when mock mode is OFF.
 # This means no ANTHROPIC_API_KEY is required when MOCK_AI=true.
 
@@ -189,7 +189,7 @@ def _get_client():
 _MODEL      = "claude-sonnet-4-6"
 _MAX_TOKENS = 1000
 
-# ─── Mock responses ───────────────────────────────────────────────────────────
+# Mock responses
 
 _MOCK_PROFILE: dict = {
     "full_name":       "Alex Carter (Mock)",
@@ -260,7 +260,7 @@ def _mock_match(field_labels: list[str]) -> dict:
     return result
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+# Helpers
 
 def _strip_code_fences(text: str) -> str:
     """Remove markdown code fences (```json … ``` or ``` … ```) from a string."""
@@ -269,7 +269,7 @@ def _strip_code_fences(text: str) -> str:
     return text
 
 
-# ─── Public API ───────────────────────────────────────────────────────────────
+# Public API
 
 _EXTRACTION_SYSTEM_PROMPT = """\
 You are a resume parser. Your only job is to extract structured data

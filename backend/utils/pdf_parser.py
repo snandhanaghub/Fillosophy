@@ -83,7 +83,7 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     return cleaned
 
 
-# ─── Helpers ──────────────────────────────────────────────────
+# Helpers
 
 def _collapse_blank_lines(text: str) -> str:
     """

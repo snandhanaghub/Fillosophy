@@ -29,7 +29,13 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/content.js"],
+      "js": [
+        "content/detector.js",
+        "content/autofill.js",
+        "content/overlay.js",
+        "content/watcher.js",
+        "content/content.js"
+      ],
       "run_at": "document_idle"
     }
   ],

@@ -10,14 +10,11 @@
  *   - Catches chrome.runtime.lastError and rejects with a real Error
  *
  * Key schema
- * ──────────
  *   profile_{name}    →  profile data object  (e.g. "profile_Academic")
  *   fillosophy_active →  { activeProfile: string }
  */
 
-// ════════════════════════════════════════════════════════════
 // CONSTANTS
-// ════════════════════════════════════════════════════════════
 
 /** Prefix applied to every profile key in storage. */
 const PROFILE_PREFIX = 'profile_';
@@ -25,9 +22,7 @@ const PROFILE_PREFIX = 'profile_';
 /** Key used to persist the currently active profile name. */
 const ACTIVE_PROFILE_KEY = 'fillosophy_active';
 
-// ════════════════════════════════════════════════════════════
 // INTERNAL HELPERS
-// ════════════════════════════════════════════════════════════
 
 /**
  * Builds the storage key for a named profile.
@@ -95,11 +90,9 @@ function storageRemove(keys) {
   });
 }
 
-// ════════════════════════════════════════════════════════════
 // PUBLIC API
-// ════════════════════════════════════════════════════════════
 
-// ── saveProfile ──────────────────────────────────────────────
+// saveProfile
 
 /**
  * Saves a profile object to chrome.storage.local under "profile_{name}".
@@ -122,7 +115,7 @@ export async function saveProfile(name, data) {
   }
 }
 
-// ── getProfile ───────────────────────────────────────────────
+// getProfile
 
 /**
  * Retrieves a stored profile by name.
@@ -150,7 +143,7 @@ export async function getProfile(name) {
   }
 }
 
-// ── listProfiles ─────────────────────────────────────────────
+// listProfiles
 
 /**
  * Lists all saved profile names by scanning all keys in storage
@@ -179,7 +172,7 @@ export async function listProfiles() {
   }
 }
 
-// ── setActiveProfile ─────────────────────────────────────────
+// setActiveProfile
 
 /**
  * Marks a profile as the currently active one.
@@ -202,7 +195,7 @@ export async function setActiveProfile(name) {
   }
 }
 
-// ── getActiveProfile ─────────────────────────────────────────
+// getActiveProfile
 
 /**
  * Retrieves the name of the currently active profile.
@@ -229,7 +222,7 @@ export async function getActiveProfile() {
   }
 }
 
-// ── deleteProfile ────────────────────────────────────────────
+// deleteProfile
 
 /**
  * Permanently removes a profile from storage.

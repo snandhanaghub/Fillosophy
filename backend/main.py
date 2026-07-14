@@ -26,7 +26,7 @@ from routes.match import router as match_router
 from routes.profiles import router as profiles_router
 from database.profiles import init_db
 
-# ─── App instance ─────────────────────────────────────────────
+# App instance
 app = FastAPI(
     title="Fillosophy API",
     description=(
@@ -38,7 +38,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# ─── CORS middleware ───────────────────────────────────────────
+# CORS middleware
 # Chrome extensions send requests from chrome-extension:// origins.
 # allow_origins=["*"] is required for local development.
 app.add_middleware(
@@ -49,13 +49,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Startup ───────────────────────────────────────────────────
+# Startup
 @app.on_event("startup")
 def startup():
     """Initialise the database and validate required environment variables."""
     init_db()
 
-    # ── Validate Claude API key ────────────────────────────────────────────
+    # Validate Claude API key
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         print("[Fillosophy] WARNING: ANTHROPIC_API_KEY is not set.")
@@ -64,21 +64,21 @@ def startup():
         masked = api_key[:8] + "..." + api_key[-4:]
         print(f"[Fillosophy] Claude API key loaded: {masked}")
 
-    # ── Validate Supabase config if selected ──────────────────────────────
+    # Validate Supabase config if selected
     db_backend = os.getenv("DB_BACKEND", "sqlite")
     if db_backend == "supabase":
         if not os.getenv("SUPABASE_URL") or not os.getenv("SUPABASE_KEY"):
             print("[Fillosophy] ERROR: DB_BACKEND=supabase but credentials missing.")
             print("[Fillosophy] Set SUPABASE_URL and SUPABASE_KEY in .env")
 
-# ─── Routers ──────────────────────────────────────────────────
+# Routers
 app.include_router(extract_router,  prefix="/extract",  tags=["Extract"])
 app.include_router(match_router,    prefix="/match",    tags=["Match"])
 app.include_router(profiles_router, prefix="/profiles", tags=["Profiles"])
 print("[Fillosophy] Profile management routes registered at /profiles")
 
 
-# ─── Root / health-check ──────────────────────────────────────
+# Root / health-check
 @app.get("/", tags=["Health"], summary="Health check")
 async def root() -> dict:
     """

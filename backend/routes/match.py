@@ -17,7 +17,7 @@ from utils.ai_client import match_fields_to_profile
 router = APIRouter()
 
 
-# ─── Request schema ───────────────────────────────────────────
+# Request schema
 
 class MatchRequest(BaseModel):
     """
@@ -51,7 +51,7 @@ class MatchRequest(BaseModel):
     )
 
 
-# ─── Route ────────────────────────────────────────────────────
+# Route
 
 @router.post(
     "/",
@@ -81,14 +81,14 @@ async def match_fields(payload: MatchRequest) -> dict:
         HTTP 502 if the AI matching call fails.
     """
 
-    # ── Validation ────────────────────────────────────────────
+    # Validation
     if len(payload.fields) == 0:
         raise HTTPException(status_code=400, detail="No field labels provided")
 
     if not payload.profile:
         raise HTTPException(status_code=400, detail="Profile is empty")
 
-    # ── AI matching ───────────────────────────────────────────
+    # AI matching
     profile_tag = f'"{payload.profile_name}"' if payload.profile_name else "(unnamed)"
     print(f"[Fillosophy /match] Matching {len(payload.fields)} fields "
           f"against profile {profile_tag}")
@@ -114,7 +114,7 @@ async def match_fields(payload: MatchRequest) -> dict:
             detail=f"AI matching failed: {exc}",
         ) from exc
 
-    # ── Confidence summary ────────────────────────────────────
+    # Confidence summary
     total = len(payload.fields)
     high  = sum(
         1 for entry in mapping.values()

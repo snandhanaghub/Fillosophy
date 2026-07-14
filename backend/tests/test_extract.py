@@ -33,14 +33,14 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from utils.pdf_parser import extract_text_from_pdf  # noqa: E402
 
-# ─── Configuration ────────────────────────────────────────────
+# Configuration
 PDF_PATH    = "sample_resume.pdf"   # Place this file in backend/
 EXTRACT_URL = "http://localhost:8000/extract"
 PROFILE     = "Academic"
 
 SEPARATOR   = "─" * 60
 
-# ─── Outcome tracking ─────────────────────────────────────────
+# Outcome tracking
 failures: list[str] = []
 
 def pass_(label: str) -> None:
@@ -51,9 +51,7 @@ def fail_(label: str, detail: str = "") -> None:
     print(msg)
     failures.append(msg)
 
-# ══════════════════════════════════════════════════════════════
 # PRE-FLIGHT: confirm the sample PDF exists on disk
-# ══════════════════════════════════════════════════════════════
 
 print(SEPARATOR)
 print("PRE-FLIGHT: checking for sample_resume.pdf")
@@ -68,9 +66,7 @@ if not os.path.isfile(PDF_PATH):
 file_size = os.path.getsize(PDF_PATH)
 print(f"  Found: {PDF_PATH}  ({file_size:,} bytes)\n")
 
-# ══════════════════════════════════════════════════════════════
 # BLOCK A — Direct unit test of pdf_parser.extract_text_from_pdf()
-# ══════════════════════════════════════════════════════════════
 
 print(SEPARATOR)
 print("BLOCK A — Unit test: pdf_parser.extract_text_from_pdf()")
@@ -117,9 +113,7 @@ except ValueError as exc:
 except Exception as exc:
     fail_("extract_text_from_pdf() raised unexpected exception", str(exc))
 
-# ══════════════════════════════════════════════════════════════
 # BLOCK B — Integration test: POST http://localhost:8000/extract
-# ══════════════════════════════════════════════════════════════
 
 print(f"\n{SEPARATOR}")
 print("BLOCK B — Integration test: POST /extract endpoint")
@@ -211,9 +205,7 @@ if health and health.status_code == 200:
         for line in preview.splitlines():
             print(f"  {line}")
 
-# ══════════════════════════════════════════════════════════════
 # FINAL REPORT
-# ══════════════════════════════════════════════════════════════
 
 print(f"\n{SEPARATOR}")
 if not failures:

@@ -20,7 +20,7 @@ class SQLiteProfileDB(ProfileDB):
     def __init__(self, db_path: str = "fillosophy.db") -> None:
         self.db_path = db_path
 
-    # ─── Schema ───────────────────────────────────────────────────────────────
+    # Schema
 
     def init_db(self) -> None:
         """Create the profiles table if it does not already exist (idempotent)."""
@@ -45,7 +45,7 @@ class SQLiteProfileDB(ProfileDB):
             if conn:
                 conn.close()
 
-    # ─── Write ────────────────────────────────────────────────────────────────
+    # Write
 
     def save_profile(self, name: str, data: dict) -> None:
         """Insert or replace a profile. data is serialised to JSON before storage."""
@@ -67,7 +67,7 @@ class SQLiteProfileDB(ProfileDB):
             if conn:
                 conn.close()
 
-    # ─── Read ─────────────────────────────────────────────────────────────────
+    # Read
 
     def get_profile(self, name: str) -> dict | None:
         """Return the profile dict for name, or None if no matching row exists."""
@@ -111,7 +111,7 @@ class SQLiteProfileDB(ProfileDB):
             if conn:
                 conn.close()
 
-    # ─── Delete ───────────────────────────────────────────────────────────────
+    # Delete
 
     def delete_profile(self, name: str) -> None:
         """Delete the profile with the given name (no-op if it does not exist)."""

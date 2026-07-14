@@ -37,7 +37,7 @@ class SupabaseProfileDB(ProfileDB):
             self.url[:30] if self.url else "(not set)",
         )
 
-    # ─── Stub methods ─────────────────────────────────────────────────────────
+    # Stub methods
 
     def init_db(self) -> None:
         """Not yet implemented — see SUPABASE_SETUP.md."""

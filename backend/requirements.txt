@@ -1,23 +1,23 @@
 # Fillosophy — Backend Python Dependencies
 
-# ── Web framework ──────────────────────────────────────────────
+# Web framework
 fastapi>=0.111.0
 uvicorn[standard]>=0.29.0
 
 # ── File upload support (required by FastAPI for UploadFile/Form) ──
 python-multipart>=0.0.9
 
-# ── Resume parsing ─────────────────────────────────────────────
+# Resume parsing
 pdfplumber>=0.11.0          # PDF text extraction
 python-docx>=1.1.0          # DOCX text extraction
 
-# ── AI provider ────────────────────────────────────────────────
+# AI provider
 anthropic>=0.28.0           # Claude API (profile extraction + field matching)
 
-# ── Environment variables ──────────────────────────────────────
+# Environment variables
 python-dotenv>=1.0.0        # Loads .env for ANTHROPIC_API_KEY etc.
 
-# ── Development / testing ──────────────────────────────────────
+# Development / testing
 httpx>=0.27.0               # Async HTTP client (also used by FastAPI TestClient)
 requests>=2.31.0            # Used by test_extract.py end-to-end script
 pytest>=8.2.0

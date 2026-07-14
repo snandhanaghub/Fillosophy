@@ -1,307 +1,210 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fillosophy</title>
-    <link rel="stylesheet" href="popup.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600&display=swap" rel="stylesheet">
-  </head>
-  <body>
 
-    <div id="app">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fillosophy</title>
+  <link rel="stylesheet" href="popup.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
 
-      <!-- ══════════════════════════════════════════
-           HEADER
-      ══════════════════════════════════════════ -->
-      <header class="header">
-        <div class="header-logo">
-          <span class="logo-text">Fillosophy</span>
-          <svg class="feather-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/>
-            <line x1="16" y1="8" x2="2" y2="22"/>
-            <line x1="17.5" y1="15" x2="9" y2="15"/>
-          </svg>
+<body>
+
+  <div id="app">
+
+    <!-- HEADER -->
+    <header class="header">
+      <div class="header-logo">
+        <img src="logo.png" alt="Fillosophy" class="logo-img" />
+      </div>
+      <button class="header-refresh-btn" id="header-refresh-btn" aria-label="Refresh popup">
+        <svg class="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 4v6h-6M1 20v-6h6" />
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+        </svg>
+      </button>
+    </header>
+
+    <!-- TAB BAR -->
+    <nav class="tab-bar" role="tablist">
+      <button class="tab-btn active" id="tab-upload" role="tab" aria-selected="true" aria-controls="panel-upload">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+        Upload
+      </button>
+      <button class="tab-btn" id="tab-profiles" role="tab" aria-selected="false" aria-controls="panel-profiles">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.5" />
+          <path d="M2 12c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="currentColor" stroke-width="1.5"
+            stroke-linecap="round" />
+        </svg>
+        Profiles
+      </button>
+      <button class="tab-btn" id="tab-autofill" role="tab" aria-selected="false" aria-controls="panel-autofill">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M7 1l1.5 4.5H13l-3.75 2.75 1.5 4.5L7 10.25l-3.75 2.5 1.5-4.5L1 5.5h4.5L7 1z" stroke="currentColor"
+            stroke-width="1.3" stroke-linejoin="round" />
+        </svg>
+        Autofill
+      </button>
+    </nav>
+
+    <!-- PANELS -->
+    <main class="panels">
+
+      <!-- Upload Tab -->
+      <section id="panel-upload" class="panel active" role="tabpanel" aria-labelledby="tab-upload">
+
+        <!-- Drag-drop zone -->
+        <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload resume PDF">
+          <div class="dropzone-inner">
+            <div class="dropzone-icon">
+              <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <rect x="6" y="4" width="20" height="24" rx="3" stroke="#0A1F44" stroke-width="2.0" />
+                <path d="M10 12h12M10 16h8M10 20h6" stroke="#0A1F44" stroke-width="1.8" stroke-linecap="round" />
+                <path d="M19 4v5h5" stroke="#0A1F44" stroke-width="1.8" stroke-linecap="round"
+                  stroke-linejoin="round" />
+              </svg>
+            </div>
+            <p class="dropzone-title" id="dropzone-title">Resume</p>
+            <p class="dropzone-sub" id="dropzone-sub">PDF, max 5 MB</p>
+          </div>
+          <input type="file" id="resume-file-input" accept=".pdf" hidden />
         </div>
-        <span class="version-badge">v1.0</span>
-      </header>
 
-      <!-- ══════════════════════════════════════════
-           TAB BAR
-      ══════════════════════════════════════════ -->
-      <nav class="tab-bar" role="tablist">
-        <button
-          class="tab-btn active"
-          id="tab-upload"
-          role="tab"
-          aria-selected="true"
-          aria-controls="panel-upload"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M7 1v8M4 4l3-3 3 3M2 10v2a1 1 0 001 1h8a1 1 0 001-1v-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-          Upload
+        <button class="btn btn-primary" id="extract-btn" disabled>
+          <span id="extract-btn-label">Extract &amp; Save Profile</span>
         </button>
-        <button
-          class="tab-btn"
-          id="tab-profiles"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-profiles"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="7" cy="4.5" r="2.5" stroke="currentColor" stroke-width="1.5"/>
-            <path d="M2 12c0-2.761 2.239-5 5-5s5 2.239 5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          </svg>
-          Profiles
-        </button>
-        <button
-          class="tab-btn"
-          id="tab-autofill"
-          role="tab"
-          aria-selected="false"
-          aria-controls="panel-autofill"
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M7 1l1.5 4.5H13l-3.75 2.75 1.5 4.5L7 10.25l-3.75 2.5 1.5-4.5L1 5.5h4.5L7 1z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>
-          </svg>
-          Autofill
-        </button>
-      </nav>
 
-      <!-- ══════════════════════════════════════════
-           PANELS
-      ══════════════════════════════════════════ -->
-      <main class="panels">
+        <!-- Status message — shown after extract attempt -->
+        <p id="upload-status" class="upload-status" aria-live="polite"></p>
 
-        <!-- ── Upload Tab ── -->
-        <section
-          id="panel-upload"
-          class="panel active"
-          role="tabpanel"
-          aria-labelledby="tab-upload"
-        >
-          <!-- Drag-drop zone -->
-          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Upload resume PDF">
-            <div class="dropzone-inner">
-              <div class="dropzone-icon">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                  <rect x="6" y="4" width="20" height="24" rx="3" stroke="#2563EB" stroke-width="1.8"/>
-                  <path d="M10 12h12M10 16h8M10 20h6" stroke="#2563EB" stroke-width="1.5" stroke-linecap="round"/>
-                  <path d="M19 4v5h5" stroke="#2563EB" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              <p class="dropzone-title" id="dropzone-title">Drop resume PDF here</p>
-              <p class="dropzone-sub" id="dropzone-sub">or <span class="link-text">click to browse files</span></p>
-              <p class="dropzone-hint">PDF only · up to 5 MB</p>
+
+      </section>
+
+      <!-- Profiles Tab -->
+      <section id="panel-profiles" class="panel" role="tabpanel" aria-labelledby="tab-profiles" hidden>
+        <!-- Unified Profile Picker Container -->
+        <div class="profile-picker" id="profiles-profile-picker"></div>
+
+
+
+        <!-- Field preview -->
+        <div class="section-block">
+          <span class="section-label">PROFILE PREVIEW</span>
+          <div class="preview-fields">
+            <div class="preview-row">
+              <label class="preview-label">Name</label>
+              <input class="preview-input" id="profile-field-name" type="text" value="Aditya Jain" readonly />
             </div>
-            <input type="file" id="resume-file-input" accept=".pdf" hidden />
-          </div>
-
-          <!-- Profile Name -->
-          <div class="field-group">
-            <label class="field-label" for="profile-name-select">Profile Name</label>
-            <div class="select-wrapper">
-              <select class="field-select" id="profile-name-select">
-                <option value="personal">Personal</option>
-                <option value="academic">Academic</option>
-                <option value="job">Job Application</option>
-              </select>
-              <svg class="select-arrow" width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M2 4l4 4 4-4" stroke="#6B7280" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
+            <div class="preview-row">
+              <label class="preview-label">Email</label>
+              <input class="preview-input" id="profile-field-email" type="text" value="aditya@example.com" readonly />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">CGPA</label>
+              <input class="preview-input" id="profile-field-cgpa" type="text" value="9.2 / 10" readonly />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">Degree</label>
+              <input class="preview-input" id="profile-field-degree" type="text" value="B.Tech Computer Science"
+                readonly />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">Skills</label>
+              <input class="preview-input" id="profile-field-skills" type="text" value="Python, FastAPI, React, SQL"
+                readonly />
             </div>
           </div>
+        </div>
 
-          <!-- Extract button — disabled until a file is selected -->
-          <button class="btn btn-primary" id="extract-btn" disabled>
-            <svg id="extract-btn-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path d="M7 1l1.5 4.5H13l-3.75 2.75 1.5 4.5L7 10.25l-3.75 2.5 1.5-4.5L1 5.5h4.5L7 1z" fill="currentColor"/>
-            </svg>
-            <span id="extract-btn-label">Extract &amp; Save Profile</span>
-          </button>
-
-          <!-- Status message — shown after extract attempt -->
-          <p id="upload-status" class="upload-status" aria-live="polite"></p>
-
-          <!-- Tip -->
-          <div class="tip-box">
-            <svg class="tip-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <circle cx="7" cy="7" r="6" stroke="#2563EB" stroke-width="1.3"/>
-              <path d="M7 6v4M7 4.5v.01" stroke="#2563EB" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            <p class="tip-text">
-              <strong>Tip:</strong> Upload once — Fillosophy extracts your data and reuses it
-              across all forms automatically.
-            </p>
-          </div>
-        </section>
-
-        <!-- ── Profiles Tab ── -->
-        <section
-          id="panel-profiles"
-          class="panel"
-          role="tabpanel"
-          aria-labelledby="tab-profiles"
-          hidden
-        >
-          <!-- Active Profile picker -->
-          <div class="section-block">
-            <span class="section-label">ACTIVE PROFILE</span>
-            <div class="radio-group" role="radiogroup" aria-label="Active profile">
-              <label class="radio-option">
-                <input type="radio" name="active-profile" value="personal" />
-                <span class="radio-mark"></span>
-                <span class="radio-text">Personal</span>
-              </label>
-              <label class="radio-option">
-                <input type="radio" name="active-profile" value="academic" checked />
-                <span class="radio-mark"></span>
-                <span class="radio-text">Academic</span>
-              </label>
-              <label class="radio-option">
-                <input type="radio" name="active-profile" value="job" />
-                <span class="radio-mark"></span>
-                <span class="radio-text">Job Application</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Check upload status (helps if popup closed mid-extraction) -->
-          <div class="section-block" style="padding-top: 0;">
-            <a href="#" id="check-upload-status" class="section-label" style="font-size: 10px; cursor: pointer; text-decoration: underline; color: #6B7280;">
-              ↻ Check last upload status
-            </a>
-          </div>
-
-          <!-- Field preview -->
-          <div class="section-block">
-            <span class="section-label">PROFILE PREVIEW</span>
-            <div class="preview-fields">
-              <div class="preview-row">
-                <label class="preview-label">Name</label>
-                <input class="preview-input" id="profile-field-name" type="text" value="Aditya Jain" readonly />
-              </div>
-              <div class="preview-row">
-                <label class="preview-label">Email</label>
-                <input class="preview-input" id="profile-field-email" type="text" value="aditya@example.com" readonly />
-              </div>
-              <div class="preview-row">
-                <label class="preview-label">CGPA</label>
-                <input class="preview-input" id="profile-field-cgpa" type="text" value="9.2 / 10" readonly />
-              </div>
-              <div class="preview-row">
-                <label class="preview-label">Degree</label>
-                <input class="preview-input" id="profile-field-degree" type="text" value="B.Tech Computer Science" readonly />
-              </div>
-              <div class="preview-row">
-                <label class="preview-label">Skills</label>
-                <input class="preview-input" id="profile-field-skills" type="text" value="Python, FastAPI, React, SQL" readonly />
-              </div>
-            </div>
-          </div>
-
-          <!-- Action buttons -->
-          <div class="btn-row">
-            <button class="btn btn-outline" id="export-json-btn">
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                <path d="M6.5 9V1M3.5 6l3 3 3-3M1 10v1.5A1.5 1.5 0 002.5 13h8a1.5 1.5 0 001.5-1.5V10" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              Export JSON
-            </button>
-            <button class="btn btn-outline" id="import-btn">
-              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                <path d="M6.5 4V12M3.5 7l3-3 3 3M1 3V1.5A1.5 1.5 0 012.5 0h8A1.5 1.5 0 0112 1.5V3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              Import
-            </button>
-            <input type="file" id="import-file-input" accept=".json" style="display:none">
-          </div>
-
-          <!-- Status message for profiles tab actions (export / import) -->
-          <p class="upload-status" id="profiles-tab-status"></p>
-        </section>
-
-        <!-- ── Autofill Tab ── -->
-        <section
-          id="panel-autofill"
-          class="panel"
-          role="tabpanel"
-          aria-labelledby="tab-autofill"
-          hidden
-        >
-          <!-- Current page -->
-          <div class="section-block">
-            <span class="section-label">CURRENT PAGE</span>
-            <div class="page-url-chip">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <circle cx="6" cy="6" r="5" stroke="#6B7280" stroke-width="1.2"/>
-                <path d="M1 6h10M6 1a8 8 0 010 10M6 1a8 8 0 000 10" stroke="#6B7280" stroke-width="1.2"/>
-              </svg>
-              <span class="url-text" id="current-page-url">Scanning page…</span>
-            </div>
-          </div>
-
-          <!-- Stats row -->
-          <div class="stats-row">
-            <div class="stat-box">
-              <span class="stat-value" id="stat-fields-found">—</span>
-              <span class="stat-key">Fields Found</span>
-            </div>
-            <div class="stat-box stat-box--green">
-              <span class="stat-value" id="stat-high-confidence">—</span>
-              <span class="stat-key">High Confidence</span>
-            </div>
-            <div class="stat-box stat-box--amber">
-              <span class="stat-value" id="stat-needs-review">—</span>
-              <span class="stat-key">Needs Review</span>
-            </div>
-          </div>
-
-          <!-- Profile indicator -->
-          <div class="profile-indicator">
-            <div class="indicator-left">
-              <div class="indicator-dot"></div>
-              <span class="indicator-text">Using <strong id="active-profile-name">—</strong> profile</span>
-            </div>
-            <button class="switch-link" id="switch-profile-btn">Switch</button>
-          </div>
-
-          <!-- Autofill button -->
-          <button class="btn btn-primary btn-large" id="autofill-btn">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M8 1l1.8 5.4H15l-4.5 3.3 1.8 5.4L8 12.3l-4.3 2.8 1.8-5.4L1 6.4h5.2L8 1z" fill="currentColor"/>
-            </svg>
-            Autofill This Form
-          </button>
-
-          <!-- Review note -->
-          <div class="review-note">
+        <!-- Action buttons -->
+        <div class="btn-row">
+          <button class="btn btn-outline" id="export-json-btn">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-              <path d="M6.5 1L12 11H1L6.5 1z" stroke="#D97706" stroke-width="1.3" stroke-linejoin="round"/>
-              <path d="M6.5 5v3M6.5 9.5v.01" stroke="#D97706" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M6.5 9V1M3.5 6l3 3 3-3M1 10v1.5A1.5 1.5 0 002.5 13h8a1.5 1.5 0 001.5-1.5V10"
+                stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            <span>Low-confidence fields will be flagged for review before applying.</span>
+            Export JSON
+          </button>
+          <button class="btn btn-outline" id="import-btn">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M6.5 4V12M3.5 7l3-3 3 3M1 3V1.5A1.5 1.5 0 012.5 0h8A1.5 1.5 0 0112 1.5V3" stroke="currentColor"
+                stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            Import
+          </button>
+          <input type="file" id="import-file-input" accept=".json" style="display:none">
+        </div>
+
+        <!-- Status message for profiles tab actions (export / import) -->
+        <p class="upload-status" id="profiles-tab-status"></p>
+      </section>
+
+      <!-- Autofill Tab -->
+      <section id="panel-autofill" class="panel" role="tabpanel" aria-labelledby="tab-autofill" hidden>
+        <!-- Current page -->
+        <div class="section-block">
+          <span class="section-label">CURRENT PAGE</span>
+          <div class="page-url-chip">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <circle cx="6" cy="6" r="5" stroke="#0A1F44" stroke-width="1.8" />
+              <path d="M1 6h10M6 1a8 8 0 010 10M6 1a8 8 0 000 10" stroke="#0A1F44" stroke-width="1.8" />
+            </svg>
+            <span class="url-text" id="current-page-url">Scanning page…</span>
           </div>
+        </div>
 
-          <!-- Autofill tab status — errors / warnings shown here -->
-          <p id="autofill-tab-status" class="upload-status" aria-live="polite"></p>
-        </section>
+        <!-- Stats row -->
+        <div class="stats-row">
+          <div class="stat-box">
+            <span class="stat-value" id="stat-fields-found">—</span>
+            <span class="stat-key">Fields Found</span>
+          </div>
+          <div class="stat-box stat-box--green">
+            <span class="stat-value" id="stat-high-confidence">—</span>
+            <span class="stat-key">High Confidence</span>
+          </div>
+          <div class="stat-box stat-box--amber">
+            <span class="stat-value" id="stat-needs-review">—</span>
+            <span class="stat-key">Needs Review</span>
+          </div>
+        </div>
 
-      </main>
+        <!-- Profile indicator -->
+        <div class="profile-indicator">
+          <div class="indicator-left">
+            <div class="indicator-dot"></div>
+            <span class="indicator-text">Using <strong id="active-profile-name">—</strong> profile</span>
+          </div>
+          <button class="switch-link" id="switch-profile-btn">Switch</button>
+        </div>
 
-      <!-- ══════════════════════════════════════════
-           FOOTER
-      ══════════════════════════════════════════ -->
-      <footer class="footer">
-        <span class="footer-text">Fillosophy &copy; 2026</span>
-        <a href="#" class="footer-link">Settings</a>
-      </footer>
+        <button class="btn btn-primary btn-large" id="autofill-btn">
+          Autofill This Form
+        </button>
 
-    </div><!-- /#app -->
 
-    <!-- All popup behaviour lives in popup.js -->
-    <script type="module" src="popup.js"></script>
 
-  </body>
+        <!-- Autofill tab status — errors / warnings shown here -->
+        <p id="autofill-tab-status" class="upload-status" aria-live="polite"></p>
+      </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <span class="footer-text">Fillosophy &copy; 2026</span>
+    </footer>
+
+  </div><!-- /#app -->
+
+  <!-- All popup behaviour lives in popup.js -->
+  <script type="module" src="popup.js"></script>
+
+</body>
+
 </html>

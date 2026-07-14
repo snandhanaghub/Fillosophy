@@ -10,7 +10,7 @@ import {
 /** Base URL of the local FastAPI backend. */
 const BACKEND_BASE_URL = 'http://localhost:8000';
 
-// ─── Tab helpers ───────────────────────────────────────────────
+// Tab helpers
 
 /**
  * Returns the currently active tab in the focused window.
@@ -75,7 +75,13 @@ async function ensureContentScript(tabId) {
   try {
     await chrome.scripting.executeScript({
       target: { tabId },
-      files:  ['content/content.js'],
+      files:  [
+        'content/detector.js',
+        'content/autofill.js',
+        'content/overlay.js',
+        'content/watcher.js',
+        'content/content.js'
+      ],
     });
     console.log(`[Fillosophy SW] Content script injected into tab ${tabId}`);
     return true;
@@ -89,7 +95,7 @@ async function ensureContentScript(tabId) {
   }
 }
 
-// ─── Lifecycle ─────────────────────────────────────────────────
+// Lifecycle
 
 chrome.runtime.onInstalled.addListener(({ reason }) => {
   console.log('[Fillosophy] Extension installed/updated.');
@@ -100,7 +106,7 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
   }
 });
 
-// ─── Message router ────────────────────────────────────────────
+// Message router
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log(`[Fillosophy SW] Message received: ${message.type}`);
@@ -206,7 +212,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// ─── Handlers ──────────────────────────────────────────────────
+// Handlers
 
 /**
  * Sets the active profile name in chrome.storage.

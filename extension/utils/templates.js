@@ -1,16 +1,12 @@
 // Fillosophy — Form-field template library
-// ─────────────────────────────────────────────────────────────
 // Stores known field-label → profile-key mappings for frequently
 // visited portals.  Reduces reliance on the Claude /match API by
 // resolving as many fields as possible locally before falling back
 // to AI matching for unrecognised labels.
 //
 // Used by popup.js → previewMatch().
-// ─────────────────────────────────────────────────────────────
 
-// ════════════════════════════════════════════════════════════
 // KNOWN TEMPLATES
-// ════════════════════════════════════════════════════════════
 
 /**
  * Map of domain → { fieldHints }.
@@ -58,9 +54,7 @@ const KNOWN_TEMPLATES = {
   },
 };
 
-// ════════════════════════════════════════════════════════════
 // PUBLIC API
-// ════════════════════════════════════════════════════════════
 
 /**
  * Returns the template entry for the given page URL, or null if no
