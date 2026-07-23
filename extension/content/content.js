@@ -1156,6 +1156,76 @@
   }
 
   /**
+   * Fills a Google Forms text field or textarea with full event dispatching.
+   *
+   * @param {HTMLElement} element - The text input or textarea DOM element.
+   * @param {string}      value   - The string value to fill.
+   * @returns {{ status: string, value: string, error?: string }}
+   */
+  function fillGoogleFormTextField(element, value) {
+    try {
+      if (!element) return { status: 'skipped', value: null };
+
+      console.log('[Fillosophy] Step: Attempting to fill text field');
+      console.log('[Fillosophy] Found element:', element);
+      console.log('[Fillosophy] Setting value to:', value);
+
+      element.focus();
+
+      // Native setter call
+      const proto = element.tagName === 'TEXTAREA'
+        ? window.HTMLTextAreaElement.prototype
+        : window.HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+      if (setter) {
+        setter.call(element, value);
+      } else {
+        element.value = value;
+      }
+
+      // execCommand as primary interaction
+      try {
+        if (element.select) element.select();
+        document.execCommand('selectAll', false, null);
+        document.execCommand('insertText', false, value);
+      } catch (cmdErr) {
+        // Fallback if execCommand is unsupported
+      }
+
+      // Dispatch events in exact order: input, change, keydown, keyup, blur
+      element.dispatchEvent(new Event('input', { bubbles: true }));
+      element.dispatchEvent(new Event('change', { bubbles: true }));
+      element.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+      element.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+      element.dispatchEvent(new Event('blur', { bubbles: true }));
+
+      // Framework / React synthetic event dispatching
+      if (element.__reactFiber$ || element.__ngContext$) {
+        const evt = new Event('input', { bubbles: true });
+        Object.defineProperty(evt, 'target', {
+          value: element,
+          enumerable: true,
+        });
+        element.dispatchEvent(evt);
+      }
+
+      // Verification check after 100ms
+      setTimeout(() => {
+        if (element.value !== value) {
+          console.warn(`[Fillosophy] Value mismatch: expected "${value}", got "${element.value}"`);
+        }
+      }, 100);
+
+      const result = { status: 'filled', value: value };
+      console.log('[Fillosophy] Result:', result);
+      return result;
+    } catch (error) {
+      console.error('[Fillosophy] fillGoogleFormTextField failed:', error);
+      return { status: 'error', error: error.message };
+    }
+  }
+
+  /**
    * Fills a single Google Forms field using the appropriate interaction method.
    * GForms uses Angular internals that require InputEvent (not Event) for text,
    * and real DOM clicks for radio/checkbox/dropdown.
