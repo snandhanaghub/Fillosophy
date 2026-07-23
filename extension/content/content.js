@@ -1234,60 +1234,155 @@
    * @param {string} value      - Value to fill.
    * @returns {boolean} True if successfully filled.
    */
-  function fillGoogleFormField(descriptor, value) {
+  /**
+   * Fills a Google Forms dropdown by opening it and clicking the matching option.
+   *
+   * @param {HTMLElement} element - The dropdown listbox or button element.
+   * @param {string}      value   - Option value to select.
+   * @returns {Promise<{ status: string, value: string, error?: string }>}
+   */
+  function fillGoogleFormDropdown(element, value) {
     try {
-      const gf = descriptor._gforms;
-      if (!gf) return false;
+      if (!element) return Promise.resolve({ status: 'skipped', reason: 'no_element' });
+      console.log('[Fillosophy] Step: Attempting to fill dropdown:', element);
 
-      if (gf.kind === 'text') {
-        const el = gf.element;
-        el.focus();
-        // Select all existing content and replace
-        el.select && el.select();
-        // Use execCommand as primary method — works reliably in GForms
-        document.execCommand('selectAll', false, null);
-        document.execCommand('insertText', false, value);
-        // Also set via native setter + InputEvent as fallback
-        const proto = el.tagName === 'TEXTAREA'
-          ? window.HTMLTextAreaElement.prototype
-          : window.HTMLInputElement.prototype;
-        const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-        if (setter) setter.call(el, value);
-        el.dispatchEvent(new InputEvent('input', { bubbles: true, data: value, inputType: 'insertText' }));
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        return true;
-      }
+      element.click();
 
-      if (gf.kind === 'radio') {
-        const target = String(value).toLowerCase();
-        const radios = gf.container.querySelectorAll('[role="radio"]');
-        for (const radio of radios) {
-          const optVal = (radio.getAttribute('data-value') || radio.innerText).toLowerCase().trim();
-          if (optVal === target || optVal.includes(target) || target.includes(optVal)) {
-            radio.click();
-            return true;
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const options = document.querySelectorAll('[role="option"]');
+          let matched = false;
+          const searchValue = String(value).toLowerCase().trim();
+
+          options.forEach(opt => {
+            if (matched) return;
+            const optionText = (opt.getAttribute('data-value') || opt.textContent || '').toLowerCase().trim();
+            if (optionText === searchValue || optionText.includes(searchValue) || searchValue.includes(optionText)) {
+              opt.click();
+              matched = true;
+            }
+          });
+
+          if (matched) {
+            resolve({ status: 'filled', value: value });
+          } else {
+            console.warn(`[Fillosophy] No matching option found for: ${value}`);
+            resolve({ status: 'skipped', reason: 'no_match' });
+          }
+        }, 400);
+      });
+    } catch (error) {
+      console.error('[Fillosophy] fillGoogleFormDropdown failed:', error);
+      return Promise.resolve({ status: 'error', error: error.message });
+    }
+  }
+
+  /**
+   * Fills Google Forms radio buttons or checkboxes.
+   *
+   * @param {Object[]} options - Array of option objects { value, element }.
+   * @param {string}  value   - Target value string.
+   * @returns {{ status: string, value: string, error?: string }}
+   */
+  function fillGoogleFormChoice(options, value) {
+    try {
+      if (!options || !options.length) return { status: 'skipped', reason: 'no_options' };
+      console.log('[Fillosophy] Step: Attempting choice fill:', options);
+
+      const searchValue = String(value).toLowerCase().trim();
+      const searchTargets = searchValue.split(/[,;]/).map(s => s.trim());
+      let filledCount = 0;
+
+      options.forEach(opt => {
+        const optionText = (opt.value || opt.element?.textContent || '').toLowerCase().trim();
+        const match = searchTargets.some(t => optionText === t || optionText.includes(t) || t.includes(optionText));
+
+        if (match && opt.element) {
+          const isChecked = opt.element.getAttribute('aria-checked') === 'true';
+          if (!isChecked) {
+            opt.element.click();
+            filledCount++;
           }
         }
-        return false;
+      });
+
+      if (filledCount > 0) {
+        return { status: 'filled', value: value };
+      }
+      return { status: 'skipped', reason: 'no_match' };
+    } catch (error) {
+      console.error('[Fillosophy] fillGoogleFormChoice failed:', error);
+      return { status: 'error', error: error.message };
+    }
+  }
+
+  /**
+   * Main Google Forms filling orchestrator function.
+   *
+   * @param {Object}   mapping - AI matching map { label: { value, confidence } }.
+   * @param {Object[]} fields  - Detected field descriptors from detectGoogleFormFields().
+   * @returns {Promise<Object>} Summary object { filled, flagged, skipped, errors, details }.
+   */
+  async function fillGoogleFormFields(mapping, fields) {
+    const results = [];
+
+    for (const field of fields) {
+      const mappedValue = mapping[field.label];
+
+      if (!mappedValue || mappedValue.value === null) {
+        results.push({
+          label: field.label,
+          status: 'skipped',
+          confidence: 0
+        });
+        continue;
       }
 
-      if (gf.kind === 'checkbox') {
-        const targets = String(value).toLowerCase().split(/[,;]/).map((s) => s.trim());
-        const checkboxes = gf.container.querySelectorAll('[role="checkbox"]');
-        let filled = false;
-        for (const cb of checkboxes) {
-          const optVal = (cb.getAttribute('data-value') || cb.innerText).toLowerCase().trim();
-          const shouldCheck = targets.some(
-            (t) => t === optVal || t.includes(optVal) || optVal.includes(t)
-          );
-          const isChecked = cb.getAttribute('aria-checked') === 'true';
-          if (shouldCheck && !isChecked) { cb.click(); filled = true; }
+      try {
+        console.log(`[Fillosophy] Step: Attempting to fill ${field.label}`);
+        let result;
+
+        if (field.fieldType === 'googleforms_text' || field.fieldType === 'googleforms_textarea' || field._gforms?.kind === 'text') {
+          result = fillGoogleFormTextField(field.element, String(mappedValue.value));
+        } else if (field.fieldType === 'googleforms_dropdown' || field._gforms?.kind === 'listbox') {
+          result = await fillGoogleFormDropdown(field.element, String(mappedValue.value));
+        } else if (field.fieldType === 'googleforms_choice' || field._gforms?.kind === 'radio' || field._gforms?.kind === 'checkbox') {
+          result = fillGoogleFormChoice(field.options || [], String(mappedValue.value));
+        } else {
+          const ok = fillGoogleFormField(field, String(mappedValue.value));
+          result = { status: ok ? 'filled' : 'skipped', value: mappedValue.value };
         }
-        return filled;
-      }
 
-      if (gf.kind === 'listbox') {
-        // Open the dropdown
+        result.confidence = mappedValue.confidence ?? 100;
+        result.label = field.label;
+        if (mappedValue.confidence < 70) {
+          result.low_confidence = true;
+        }
+
+        results.push(result);
+        console.log(`[Fillosophy] Result:`, result);
+      } catch (error) {
+        console.error(`[Fillosophy] Error filling ${field.label}:`, error);
+        results.push({
+          label: field.label,
+          status: 'error',
+          error: error.message,
+          confidence: 0
+        });
+      }
+    }
+
+    const summary = {
+      filled: results.filter(r => r.status === 'filled').length,
+      flagged: results.filter(r => r.low_confidence === true).length,
+      skipped: results.filter(r => r.status === 'skipped').length,
+      errors: results.filter(r => r.status === 'error').length,
+      details: results
+    };
+
+    console.log('[Fillosophy Content] Google Forms filled:', summary);
+    return summary;
+  }
         gf.element.click();
         const target = String(value).toLowerCase();
         // Wait a tick for options to render, then click the matching option
