@@ -51,13 +51,19 @@
   // ════════════════════════════════════════════════════════════
 
   /**
-   * Returns true if the current page is a Google Form (viewer or editor).
+   * Returns true if the current page is a Google Form.
    * @returns {boolean}
    */
-  function isGoogleForms() {
-    return window.location.hostname === 'docs.google.com' &&
-           window.location.pathname.includes('/forms/');
+  function isGoogleForm() {
+    const hostname = window.location.hostname;
+    const pathname = window.location.pathname;
+    return hostname.includes('docs.google.com') && pathname.includes('/forms/');
   }
+
+  // Alias for backward compatibility
+  const isGoogleForms = isGoogleForm;
+
+  console.log(`[Fillosophy Content] Google Form detected: ${isGoogleForm()}`);
 
   // ════════════════════════════════════════════════════════════
   // LABEL RESOLUTION
