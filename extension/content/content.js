@@ -956,103 +956,150 @@
    *
    * @returns {Object[]} Array of field descriptor objects.
    */
+  /**
+   * Detects all question blocks in a Google Form and returns field descriptors.
+   * @returns {Object[]} Array of field descriptor objects.
+   */
   function detectGoogleFormFields() {
     const fields = [];
     let index = 0;
 
-    // ── Text inputs and textareas ──────────────────────────────────────────────
-    // Key insight: GForms sets aria-label on every question input to the question
-    // title. We use this as both the detector (must have aria-label to be a real
-    // question field, not a UI widget) and the label source.
-    // We do NOT rely solely on name^="entry." because in preview/edit modes GForms
-    // may render visible inputs without name attributes, or with hidden twins.
-    const allInputs = document.querySelectorAll(
-      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="file"]), textarea'
-    );
+    // 1. Query all form items using [data-item-id] or fallback container selectors
+    let items = document.querySelectorAll('[data-item-id]');
+    if (items.length === 0) {
+      items = document.querySelectorAll('.freebirdFormviewerViewItemsItemItem, [role="listitem"], [data-params]');
+    }
 
-    allInputs.forEach((el) => {
-      if (!isVisible(el)) return;
-      const label = getGFormsLabel(el);
-      if (!label) return; // no label = not a GForms question input
-      fields.push({
-        index: index++,
-        tag: el.tagName,
-        type: el.tagName === 'TEXTAREA' ? 'textarea' : (el.type || 'text'),
-        name: el.name || null,
-        id: el.id || null,
-        placeholder: el.placeholder || null,
-        label,
-        ariaLabel: el.getAttribute('aria-label') || null,
-        required: el.required || false,
-        value: el.value || null,
-        _gforms: { kind: 'text', element: el },
-      });
+    items.forEach((item) => {
+      // 2a. Extract question label
+      let label = null;
+      const heading = item.querySelector('[role="heading"]');
+      if (heading && heading.textContent.trim()) {
+        label = heading.textContent.trim();
+      } else {
+        const classTitle = item.querySelector('.M0yp7e, .freebirdFormviewerComponentsQuestionBaseTitle');
+        if (classTitle && classTitle.textContent.trim()) {
+          label = classTitle.textContent.trim();
+        } else {
+          label = `Question ${index + 1}`;
+        }
+      }
+      label = label.replace(/\s*\*\s*$/, '').trim();
+
+      // 2b/c. Look for text input / textarea
+      const textInput = item.querySelector('input[type="text"], input:not([type="hidden"]), [role="textbox"]');
+      const textareaInput = item.querySelector('textarea');
+
+      // 2d. Look for dropdown
+      const listbox = item.querySelector('[role="listbox"], [role="button"][jsname]');
+
+      // 2e. Look for radio / checkbox groups
+      const radios = item.querySelectorAll('[role="radio"]');
+      const checkboxes = item.querySelectorAll('[role="checkbox"]');
+
+      if (textInput || textareaInput) {
+        const inp = textInput || textareaInput;
+        const descriptor = {
+          index: index++,
+          itemId: item.getAttribute('data-item-id') || null,
+          tag: inp.tagName,
+          type: inp.tagName === 'TEXTAREA' ? 'textarea' : 'text',
+          label: label,
+          name: inp.name || null,
+          id: inp.id || null,
+          placeholder: inp.placeholder || null,
+          element: inp,
+          fieldType: inp.tagName === 'TEXTAREA' ? 'googleforms_textarea' : 'googleforms_text',
+          _gforms: { kind: 'text', element: inp }
+        };
+        Object.defineProperty(descriptor, 'element', { value: inp, enumerable: false });
+        fields.push(descriptor);
+
+      } else if (listbox) {
+        const optionEls = Array.from(item.querySelectorAll('[role="option"]'));
+        const options = optionEls.map(o => ({
+          value: o.getAttribute('data-value') || o.innerText.trim(),
+          element: o
+        })).filter(o => o.value);
+
+        const descriptor = {
+          index: index++,
+          itemId: item.getAttribute('data-item-id') || null,
+          tag: 'DIV',
+          type: 'select',
+          label: label,
+          name: null,
+          id: listbox.id || null,
+          element: listbox,
+          fieldType: 'googleforms_dropdown',
+          options: options,
+          _gforms: { kind: 'listbox', element: listbox, options: options.map(o => o.value) }
+        };
+        Object.defineProperty(descriptor, 'element', { value: listbox, enumerable: false });
+        fields.push(descriptor);
+
+      } else if (radios.length > 0 || checkboxes.length > 0) {
+        const isRadio = radios.length > 0;
+        const choiceEls = isRadio ? radios : checkboxes;
+        const options = Array.from(choiceEls).map(el => ({
+          value: el.getAttribute('data-value') || el.innerText.trim(),
+          element: el
+        })).filter(o => o.value);
+
+        const container = isRadio
+          ? (item.querySelector('[role="radiogroup"]') || item)
+          : (item.querySelector('[role="group"]') || item);
+
+        const descriptor = {
+          index: index++,
+          itemId: item.getAttribute('data-item-id') || null,
+          tag: 'DIV',
+          type: isRadio ? 'radio' : 'checkbox',
+          label: label,
+          name: null,
+          id: container.id || null,
+          element: container,
+          fieldType: 'googleforms_choice',
+          options: options,
+          _gforms: {
+            kind: isRadio ? 'radio' : 'checkbox',
+            container: container,
+            options: options.map(o => o.value)
+          }
+        };
+        Object.defineProperty(descriptor, 'element', { value: container, enumerable: false });
+        fields.push(descriptor);
+      }
     });
 
-    // ── Multiple choice (radiogroup) ───────────────────────────────────────────
-    document.querySelectorAll('[role="radiogroup"]').forEach((rg) => {
-      const label = getGFormsLabel(rg);
-      if (!label) return;
-      const options = Array.from(rg.querySelectorAll('[role="radio"]'))
-        .map((r) => r.getAttribute('data-value') || r.innerText.trim())
-        .filter(Boolean);
-      if (!options.length) return;
-      fields.push({
-        index: index++,
-        tag: 'DIV', type: 'radio',
-        name: null, id: null, placeholder: null,
-        label,
-        ariaLabel: rg.getAttribute('aria-label') || label,
-        required: false, value: null,
-        _gforms: { kind: 'radio', container: rg, options },
+    // Fallback: if 0 fields found by items, scan direct input elements
+    if (fields.length === 0) {
+      const allInputs = document.querySelectorAll(
+        'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="file"]), textarea'
+      );
+      allInputs.forEach((el) => {
+        if (!isVisible(el)) return;
+        const label = getGFormsLabel(el);
+        if (!label) return;
+        const descriptor = {
+          index: index++,
+          itemId: null,
+          tag: el.tagName,
+          type: el.tagName === 'TEXTAREA' ? 'textarea' : 'text',
+          label: label,
+          name: el.name || null,
+          id: el.id || null,
+          placeholder: el.placeholder || null,
+          element: el,
+          fieldType: el.tagName === 'TEXTAREA' ? 'googleforms_textarea' : 'googleforms_text',
+          _gforms: { kind: 'text', element: el }
+        };
+        Object.defineProperty(descriptor, 'element', { value: el, enumerable: false });
+        fields.push(descriptor);
       });
-    });
+    }
 
-    baseIndex = fields.length;
-
-    // ── Strategy C: role="group" with checkboxes ──────────────────────────
-    document.querySelectorAll('[role="group"]').forEach((cg, i) => {
-      const checkboxes = cg.querySelectorAll('[role="checkbox"]');
-      if (!checkboxes.length) return;
-      const label = getGFormsLabel(cg);
-      if (!label) return;
-      const options = Array.from(checkboxes)
-        .map((c) => c.getAttribute('data-value') || c.innerText.trim())
-        .filter(Boolean);
-      fields.push({
-        index: baseIndex + i,
-        tag: 'DIV',
-        type: 'checkbox',
-        name: null, id: null, placeholder: null,
-        label,
-        ariaLabel: cg.getAttribute('aria-label') || label,
-        required: false, value: null,
-        _gforms: { kind: 'checkbox', container: cg, options },
-      });
-    });
-
-    baseIndex = fields.length;
-
-    // ── Strategy D: role="listbox" → dropdown ─────────────────────────────
-    document.querySelectorAll('[role="listbox"]').forEach((lb, i) => {
-      const label = getGFormsLabel(lb);
-      if (!label) return;
-      const options = Array.from(lb.querySelectorAll('[role="option"]'))
-        .map((o) => o.getAttribute('data-value') || o.innerText.trim())
-        .filter(Boolean);
-      fields.push({
-        index: baseIndex + i,
-        tag: 'DIV',
-        type: 'select',
-        name: null, id: null, placeholder: null,
-        label,
-        ariaLabel: lb.getAttribute('aria-label') || label,
-        required: false, value: null,
-        _gforms: { kind: 'listbox', element: lb, options },
-      });
-    });
-
-    console.log(`[Fillosophy Content] Google Forms: detected ${fields.length} question(s)`, fields.map(f => f.label));
+    console.log(`[Fillosophy Content] Detected ${fields.length} Google Form fields`);
     return fields;
   }
 
