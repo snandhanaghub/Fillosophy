@@ -107,11 +107,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   switch (message.type) {
 
-    // PING_CONTENT — verify the content script is alive on the active tab
+    // PING_CONTENT — verify the content script is alive on the active tab (inject if missing)
     case 'PING_CONTENT':
       getActiveTab()
-        .then((tab) => sendToContentScript(tab.id, { type: 'PING' }))
-        .then((response) => sendResponse(response))
+        .then(async (tab) => {
+          const ready = await ensureContentScript(tab.id);
+          if (!ready) {
+            sendResponse({ status: 'error', message: 'Cannot inject into this page type' });
+            return;
+          }
+          const response = await sendToContentScript(tab.id, { type: 'PING' });
+          sendResponse(response);
+        })
         .catch((err) => sendResponse({ status: 'error', message: err.message }));
       return true;
 
