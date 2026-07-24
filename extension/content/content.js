@@ -962,48 +962,37 @@
    */
   function detectGoogleFormFields() {
     const fields = [];
+    const seenElements = new Set();
     let index = 0;
 
-    // 1. Query all form items using [data-item-id] or fallback container selectors
-    let items = document.querySelectorAll('[data-item-id]');
-    if (items.length === 0) {
-      items = document.querySelectorAll('.freebirdFormviewerViewItemsItemItem, [role="listitem"], [data-params]');
-    }
+    // Strategy A: Query all form items using containers
+    const items = document.querySelectorAll('[data-item-id], [data-params], [role="listitem"], .QrSh2b, .freebirdFormviewerViewItemsItemItem, .ge4Wdb');
 
     items.forEach((item) => {
-      // 2a. Extract question label
       let label = null;
-      const heading = item.querySelector('[role="heading"]');
+      const heading = item.querySelector('[role="heading"], .M0yp7e, .freebirdFormviewerComponentsQuestionBaseTitle, .hoT2id');
       if (heading && heading.textContent.trim()) {
         label = heading.textContent.trim();
-      } else {
-        const classTitle = item.querySelector('.M0yp7e, .freebirdFormviewerComponentsQuestionBaseTitle');
-        if (classTitle && classTitle.textContent.trim()) {
-          label = classTitle.textContent.trim();
-        } else {
-          label = `Question ${index + 1}`;
-        }
       }
+      if (!label) {
+        const inpWithLabel = item.querySelector('input[aria-label], textarea[aria-label]');
+        if (inpWithLabel) label = inpWithLabel.getAttribute('aria-label');
+      }
+      if (!label) label = `Question ${index + 1}`;
       label = label.replace(/\s*\*\s*$/, '').trim();
 
-      // 2b/c. Look for text input / textarea
-      const textInput = item.querySelector('input[type="text"], input:not([type="hidden"]), [role="textbox"]');
-      const textareaInput = item.querySelector('textarea');
-
-      // 2d. Look for dropdown
+      const inp = item.querySelector('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]), textarea, [role="textbox"]');
       const listbox = item.querySelector('[role="listbox"], [role="button"][jsname]');
-
-      // 2e. Look for radio / checkbox groups
       const radios = item.querySelectorAll('[role="radio"]');
       const checkboxes = item.querySelectorAll('[role="checkbox"]');
 
-      if (textInput || textareaInput) {
-        const inp = textInput || textareaInput;
+      if (inp && !seenElements.has(inp)) {
+        seenElements.add(inp);
         const descriptor = {
           index: index++,
           itemId: item.getAttribute('data-item-id') || null,
           tag: inp.tagName,
-          type: inp.tagName === 'TEXTAREA' ? 'textarea' : 'text',
+          type: inp.tagName === 'TEXTAREA' ? 'textarea' : (inp.type || 'text'),
           label: label,
           name: inp.name || null,
           id: inp.id || null,
@@ -1015,7 +1004,8 @@
         Object.defineProperty(descriptor, 'element', { value: inp, enumerable: false });
         fields.push(descriptor);
 
-      } else if (listbox) {
+      } else if (listbox && !seenElements.has(listbox)) {
+        seenElements.add(listbox);
         const optionEls = Array.from(item.querySelectorAll('[role="option"]'));
         const options = optionEls.map(o => ({
           value: o.getAttribute('data-value') || o.innerText.trim(),
@@ -1038,66 +1028,68 @@
         Object.defineProperty(descriptor, 'element', { value: listbox, enumerable: false });
         fields.push(descriptor);
 
-      } else if (radios.length > 0 || checkboxes.length > 0) {
-        const isRadio = radios.length > 0;
-        const choiceEls = isRadio ? radios : checkboxes;
-        const options = Array.from(choiceEls).map(el => ({
-          value: el.getAttribute('data-value') || el.innerText.trim(),
-          element: el
-        })).filter(o => o.value);
-
-        const container = isRadio
+      } else if ((radios.length > 0 || checkboxes.length > 0)) {
+        const container = radios.length > 0
           ? (item.querySelector('[role="radiogroup"]') || item)
           : (item.querySelector('[role="group"]') || item);
 
-        const descriptor = {
-          index: index++,
-          itemId: item.getAttribute('data-item-id') || null,
-          tag: 'DIV',
-          type: isRadio ? 'radio' : 'checkbox',
-          label: label,
-          name: null,
-          id: container.id || null,
-          element: container,
-          fieldType: 'googleforms_choice',
-          options: options,
-          _gforms: {
-            kind: isRadio ? 'radio' : 'checkbox',
-            container: container,
-            options: options.map(o => o.value)
-          }
-        };
-        Object.defineProperty(descriptor, 'element', { value: container, enumerable: false });
-        fields.push(descriptor);
+        if (!seenElements.has(container)) {
+          seenElements.add(container);
+          const isRadio = radios.length > 0;
+          const choiceEls = isRadio ? radios : checkboxes;
+          const options = Array.from(choiceEls).map(el => ({
+            value: el.getAttribute('data-value') || el.innerText.trim(),
+            element: el
+          })).filter(o => o.value);
+
+          const descriptor = {
+            index: index++,
+            itemId: item.getAttribute('data-item-id') || null,
+            tag: 'DIV',
+            type: isRadio ? 'radio' : 'checkbox',
+            label: label,
+            name: null,
+            id: container.id || null,
+            element: container,
+            fieldType: 'googleforms_choice',
+            options: options,
+            _gforms: {
+              kind: isRadio ? 'radio' : 'checkbox',
+              container: container,
+              options: options.map(o => o.value)
+            }
+          };
+          Object.defineProperty(descriptor, 'element', { value: container, enumerable: false });
+          fields.push(descriptor);
+        }
       }
     });
 
-    // Fallback: if 0 fields found by items, scan direct input elements
-    if (fields.length === 0) {
-      const allInputs = document.querySelectorAll(
-        'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="file"]), textarea'
-      );
-      allInputs.forEach((el) => {
-        if (!isVisible(el)) return;
-        const label = getGFormsLabel(el);
-        if (!label) return;
-        const descriptor = {
-          index: index++,
-          itemId: null,
-          tag: el.tagName,
-          type: el.tagName === 'TEXTAREA' ? 'textarea' : 'text',
-          label: label,
-          name: el.name || null,
-          id: el.id || null,
-          placeholder: el.placeholder || null,
-          element: el,
-          fieldType: el.tagName === 'TEXTAREA' ? 'googleforms_textarea' : 'googleforms_text',
-          _gforms: { kind: 'text', element: el }
-        };
-        Object.defineProperty(descriptor, 'element', { value: el, enumerable: false });
-        fields.push(descriptor);
-      });
-    }
+    // Strategy B: Direct scan for inputs with labels not caught by items
+    const allInputs = document.querySelectorAll(
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="image"]):not([type="file"]), textarea'
+    );
+    allInputs.forEach((el) => {
+      if (!isVisible(el) || seenElements.has(el)) return;
+      const label = getGFormsLabel(el);
+      if (!label) return;
+      seenElements.add(el);
+      const descriptor = {
+        index: index++,
+        itemId: null,
+        tag: el.tagName,
+        type: el.tagName === 'TEXTAREA' ? 'textarea' : (el.type || 'text'),
+        label: label,
+        name: el.name || null,
+        id: el.id || null,
+        placeholder: el.placeholder || null,
+        element: el,
+        fieldType: el.tagName === 'TEXTAREA' ? 'googleforms_textarea' : 'googleforms_text',
+        _gforms: { kind: 'text', element: el }
+      };
+      Object.defineProperty(descriptor, 'element', { value: el, enumerable: false });
+      fields.push(descriptor);
+    });
 
     console.log(`[Fillosophy Content] Detected ${fields.length} Google Form fields`);
     return fields;
