@@ -45,8 +45,7 @@ except requests.exceptions.ConnectionError:
 
 # Check database initialized
 db_exists = os.path.exists("backend/fillosophy.db")
-has_supabase = os.getenv("SUPABASE_URL") is not None
-check("Database initialized", db_exists or has_supabase)
+check("Database initialized", db_exists)
 
 # API key loaded is verified by doing a quick mock extraction or relying on the real extraction in Section B
 # We'll just put a placeholder boolean, which we update if Section B extract passes.

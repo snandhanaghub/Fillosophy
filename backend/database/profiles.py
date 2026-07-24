@@ -1,26 +1,16 @@
 """
-Fillosophy — Active database backend selector.
-Set DB_BACKEND=sqlite (default) or DB_BACKEND=supabase in .env
-to switch implementations. Routes always import from this file.
+Fillosophy — Database interface.
+Uses SQLiteProfileDB for clean, zero-dependency local profile storage.
 """
 
-import os
-
 from database.sqlite_db import SQLiteProfileDB
-from database.supabase_db import SupabaseProfileDB
 
-DB_BACKEND = os.getenv("DB_BACKEND", "sqlite").lower()
-
-if DB_BACKEND == "supabase":
-    db = SupabaseProfileDB()
-    print("[Fillosophy DB] Using Supabase backend")
-else:
-    db = SQLiteProfileDB()
-    print("[Fillosophy DB] Using SQLite backend")
+db = SQLiteProfileDB()
+print("[Fillosophy DB] Initialized SQLite database backend")
 
 
 # ─── Top-level forwarding functions ───────────────────────────────────────────
-# Routes import these — never the concrete implementations directly.
+# Routes import these functions directly.
 
 def init_db() -> None:
     return db.init_db()
@@ -40,3 +30,4 @@ def list_profiles() -> list[str]:
 
 def delete_profile(name: str) -> None:
     return db.delete_profile(name)
+

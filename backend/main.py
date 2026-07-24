@@ -64,13 +64,6 @@ def startup():
         masked = api_key[:8] + "..." + api_key[-4:]
         print(f"[Fillosophy] Claude API key loaded: {masked}")
 
-    # ── Validate Supabase config if selected ──────────────────────────────
-    db_backend = os.getenv("DB_BACKEND", "sqlite")
-    if db_backend == "supabase":
-        if not os.getenv("SUPABASE_URL") or not os.getenv("SUPABASE_KEY"):
-            print("[Fillosophy] ERROR: DB_BACKEND=supabase but credentials missing.")
-            print("[Fillosophy] Set SUPABASE_URL and SUPABASE_KEY in .env")
-
 # ─── Routers ──────────────────────────────────────────────────
 app.include_router(extract_router,  prefix="/extract",  tags=["Extract"])
 app.include_router(match_router,    prefix="/match",    tags=["Match"])

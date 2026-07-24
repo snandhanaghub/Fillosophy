@@ -22,7 +22,7 @@ Filling out the same job application details over and over across different port
 | **Backend**     | Python, FastAPI, Uvicorn                         |
 | **AI / LLMs**   | Anthropic Claude (via API), Groq/OpenRouter fallback |
 | **Parsing**     | pdfplumber                                       |
-| **Database**    | SQLite (default) / Supabase                      |
+| **Database**    | SQLite                                           |
 
 ## Installation
 
