@@ -412,7 +412,9 @@ function switchTab(tabId) {
 
   // Side-effect: refresh profile chips when the Profiles tab becomes active
   if (tabId === 'profiles') {
-    renderProfileChips();
+    syncProfilesFromBackend().then(() => {
+      renderProfileChips();
+    });
   }
 }
 
@@ -431,6 +433,48 @@ function activateTab(tabId, tabBtns, tabPanels) {
  * builds clickable chips with the active one highlighted.
  * Also appends a "+ Add" chip for creating new profile slots.
  */
+/**
+ * Synchronises local storage with the Supabase database.
+ * Fetches all profiles from the backend list endpoint, retrieves their data,
+ * and updates chrome.storage.local to match.
+ */
+async function syncProfilesFromBackend() {
+  try {
+    const resList = await fetch('http://localhost:8000/profiles/list');
+    if (!resList.ok) throw new Error(`HTTP ${resList.status}`);
+    const dataList = await resList.json();
+    if (dataList.status === 'success' && Array.isArray(dataList.profiles)) {
+      const dbProfiles = dataList.profiles;
+
+      // Fetch each profile from backend and save locally
+      for (const name of dbProfiles) {
+        try {
+          const resSingle = await fetch(`http://localhost:8000/profiles/${name}`);
+          if (resSingle.ok) {
+            const dataSingle = await resSingle.json();
+            if (dataSingle.status === 'success' && dataSingle.profile_data) {
+              await saveProfile(name, dataSingle.profile_data);
+            }
+          }
+        } catch (singleErr) {
+          console.warn(`[Fillosophy] Failed to fetch data for ${name}:`, singleErr.message);
+        }
+      }
+
+      // Clean up local profiles that are no longer in the DB
+      const localProfiles = await listProfiles();
+      for (const localName of localProfiles) {
+        if (!dbProfiles.includes(localName)) {
+          await deleteProfile(localName);
+        }
+      }
+      console.log('[Fillosophy] Profiles sync from backend complete');
+    }
+  } catch (err) {
+    console.warn('[Fillosophy] Profiles sync from backend failed (server offline?):', err.message);
+  }
+}
+
 async function renderProfileChips() {
   const container = document.getElementById('profiles-profile-picker');
   if (!container) return;
@@ -446,17 +490,15 @@ async function renderProfileChips() {
     console.warn('[Fillosophy] Failed to load profiles for chips:', err.message);
   }
 
-  // Ensure at least the three default slots exist visually
-  const defaults = ['personal', 'academic', 'job'];
-  for (const d of defaults) {
-    if (!profileNames.includes(d)) {
-      profileNames.push(d);
+  // If no active profile is set yet, default to first available or null
+  if (profileNames.length > 0) {
+    if (!activeName || !profileNames.includes(activeName)) {
+      activeName = profileNames[0];
+      await setActiveProfile(activeName);
     }
-  }
-
-  // If no active profile is set yet, default to 'personal'
-  if (!activeName) {
-    activeName = 'personal';
+  } else {
+    activeName = null;
+    await setActiveProfile('');
   }
 
   // Clear container
@@ -472,19 +514,17 @@ async function renderProfileChips() {
     const displayName = name.charAt(0).toUpperCase() + name.slice(1);
     chip.textContent = displayName;
 
-    // Only show options button for non-default profiles
-    if (!defaults.includes(name)) {
-      const optionsBtn = document.createElement('button');
-      optionsBtn.className = 'chip-options-btn';
-      optionsBtn.type = 'button';
-      optionsBtn.textContent = '⋯';
-      optionsBtn.title = `Options for ${displayName}`;
-      optionsBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        handleChipOptions(name);
-      });
-      chip.appendChild(optionsBtn);
-    }
+    // Show options button for all profile chips
+    const optionsBtn = document.createElement('button');
+    optionsBtn.className = 'chip-options-btn';
+    optionsBtn.type = 'button';
+    optionsBtn.textContent = '⋯';
+    optionsBtn.title = `Options for ${displayName}`;
+    optionsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleChipOptions(name);
+    });
+    chip.appendChild(optionsBtn);
 
     chip.addEventListener('click', () => handleChipSelect(name));
     container.appendChild(chip);
@@ -509,6 +549,9 @@ async function renderProfileChips() {
     } catch (err) {
       console.warn('[Fillosophy] Failed to load active profile data:', err.message);
     }
+  } else {
+    currentProfile = null;
+    displayProfile(null);
   }
 }
 
@@ -584,16 +627,25 @@ function handleAddProfileChip(container) {
 
     if (name && name.length > 0) {
       try {
-        // Set as active — even though it has no data yet, the user
-        // can then upload a resume while this profile is selected
+        // Save empty profile locally
+        await saveProfile(name, {});
+        // Sync empty profile to database
+        await fetch(IMPORT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profile_name: name,
+            profile_data: {},
+          }),
+        });
         await setActiveProfile(name);
-        console.log(`[Fillosophy] New profile slot created: ${name}`);
+        console.log(`[Fillosophy] New profile slot created & synced: ${name}`);
       } catch (err) {
         console.warn('[Fillosophy] Failed to create profile:', err.message);
       }
     }
 
-    // Re-render (will include the new profile if it was set as active)
+    // Re-render
     renderProfileChips();
   };
 
@@ -624,11 +676,20 @@ async function handleChipOptions(name) {
 
   try {
     await deleteProfile(name);
+    // Sync deletion to backend
+    await fetch(`http://localhost:8000/profiles/${name}`, {
+      method: 'DELETE'
+    });
 
-    // If the deleted profile was active, switch to 'personal'
+    // If the deleted profile was active, switch to another or clear
     const activeName = await getActiveProfile();
     if (activeName === name) {
-      await setActiveProfile('personal');
+      const remaining = await listProfiles();
+      if (remaining.length > 0) {
+        await setActiveProfile(remaining[0]);
+      } else {
+        await setActiveProfile('');
+      }
     }
 
     console.log(`[Fillosophy] Profile deleted: ${name}`);
@@ -1106,6 +1167,19 @@ async function handleSaveProfile() {
  * @param {Object} profile - Structured profile dict returned by /extract.
  */
 function displayProfile(profile) {
+  // If profile is empty/null, clear all inputs and dynamic lists
+  if (!profile || Object.keys(profile).length === 0) {
+    const inputs = document.querySelectorAll('.preview-input');
+    inputs.forEach(input => input.value = '');
+    
+    const containerExp = document.getElementById('profile-experience-list');
+    if (containerExp) containerExp.innerHTML = '';
+    
+    const containerProj = document.getElementById('profile-projects-list');
+    if (containerProj) containerProj.innerHTML = '';
+    return;
+  }
+
   // ── Populate preview inputs ─────────────────────────────────────────────
   const set = (id, value) => {
     const el = document.getElementById(id);
@@ -1902,7 +1976,11 @@ function enterApp() {
   chrome.storage.local.get(['last_tab', 'fillosophy_active'], (result) => {
     const activeProfileName = result?.fillosophy_active?.activeProfile;
     let initialTab = result?.last_tab || (activeProfileName ? 'autofill' : 'upload');
-    switchTab(initialTab);
+    
+    // Sync database state before switching tab to ensure UI profile lists are complete
+    syncProfilesFromBackend().then(() => {
+      switchTab(initialTab);
+    });
   });
 }
 
