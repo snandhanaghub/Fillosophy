@@ -471,7 +471,10 @@ def match_fields_to_profile(profile: dict, field_labels: list[str]) -> dict:
         ValueError:   If Claude's response cannot be parsed as JSON or is
                       not a dict.
     """
-    # Pre-process: flatten skills list → comma-separated string
+    # Pre-process: flatten skills list → comma-separated string.
+    # Use a copy so we don't mutate the caller's dict (which may be stored in
+    # chrome.storage and re-used across multiple /match calls).
+    profile = dict(profile)
     if isinstance(profile.get("skills"), list):
         profile["skills"] = ", ".join(profile["skills"])
 

@@ -24,6 +24,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from routes.extract import router as extract_router
 from routes.match import router as match_router
 from routes.profiles import router as profiles_router
+from routes.auth import router as auth_router
 from database.profiles import init_db
 
 # ─── App instance ─────────────────────────────────────────────
@@ -55,7 +56,7 @@ def startup():
     """Initialise the database and validate required environment variables."""
     init_db()
 
-    # ── Validate Claude API key ────────────────────────────────────────────
+    # ── Validate Claude API key ────────────────────────────────────────────────────────
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         print("[Fillosophy] WARNING: ANTHROPIC_API_KEY is not set.")
@@ -64,10 +65,21 @@ def startup():
         masked = api_key[:8] + "..." + api_key[-4:]
         print(f"[Fillosophy] Claude API key loaded: {masked}")
 
+    # ── Validate Supabase credentials ───────────────────────────────────────────────
+    sb_url = os.getenv("SUPABASE_URL")
+    sb_key = os.getenv("SUPABASE_KEY")
+    if not sb_url or not sb_key:
+        print("[Fillosophy] WARNING: SUPABASE_URL or SUPABASE_KEY is not set.")
+        print("[Fillosophy] Profile storage will fail until both are configured.")
+    else:
+        print(f"[Fillosophy] Supabase configured: {sb_url}")
+
 # ─── Routers ──────────────────────────────────────────────────
 app.include_router(extract_router,  prefix="/extract",  tags=["Extract"])
 app.include_router(match_router,    prefix="/match",    tags=["Match"])
 app.include_router(profiles_router, prefix="/profiles", tags=["Profiles"])
+app.include_router(auth_router,     prefix="/auth",     tags=["Auth"])
+print("[Fillosophy] Auth routes registered at /auth")
 print("[Fillosophy] Profile management routes registered at /profiles")
 
 

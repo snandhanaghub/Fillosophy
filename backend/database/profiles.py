@@ -1,12 +1,12 @@
 """
 Fillosophy — Database interface.
-Uses SQLiteProfileDB for clean, zero-dependency local profile storage.
+Uses SupabaseProfileDB for cloud-backed profile storage.
 """
 
-from database.sqlite_db import SQLiteProfileDB
+from database.supabase_db import SupabaseProfileDB
 
-db = SQLiteProfileDB()
-print("[Fillosophy DB] Initialized SQLite database backend")
+db = SupabaseProfileDB()
+print("[Fillosophy DB] Initialized Supabase database backend")
 
 
 # ─── Top-level forwarding functions ───────────────────────────────────────────
@@ -30,4 +30,3 @@ def list_profiles() -> list[str]:
 
 def delete_profile(name: str) -> None:
     return db.delete_profile(name)
-

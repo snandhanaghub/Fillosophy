@@ -216,7 +216,8 @@ body {
   background: var(--bg-white);
 }
 
-.panel[hidden] {
+.panel[hidden],
+.auth-screen[hidden] {
   display: none !important;
 }
 
@@ -705,6 +706,9 @@ body {
   border-top: var(--border-thin);
   background: var(--bg-white);
   flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
 }
 
 .footer-text {
@@ -761,4 +765,121 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Footer Actions Grouping */
+.footer-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Footer Buttons (Refresh / Logout) */
+.footer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-white);
+  border: var(--border-thin);
+  color: var(--dark-navy);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+  padding: 0;
+  outline: none;
+}
+
+.footer-btn:hover {
+  background: var(--lime-green-pale);
+}
+
+.footer-btn:focus {
+  border-color: var(--dark-navy);
+  box-shadow: 0 0 0 2px var(--lime-green);
+}
+
+/* Auth Screens Layout */
+.auth-screen {
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  background: var(--bg-white);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-input {
+  width: 100%;
+  border: var(--border-thin);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--dark-navy);
+  background: var(--bg-white);
+  outline: none;
+  transition: border-color var(--transition);
+}
+
+.auth-input:focus {
+  border-color: var(--dark-navy);
+  box-shadow: 0 0 0 2px var(--lime-green);
+}
+
+.auth-toggle {
+  font-size: 12px;
+  text-align: center;
+  color: var(--dark-navy-80);
+  margin-top: 4px;
+}
+
+/* Password wrapper & eye toggle button */
+.password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--dark-navy-50);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  outline: none;
+  transition: color var(--transition);
+}
+
+.password-toggle:hover {
+  color: var(--dark-navy);
+}
+
+.password-toggle svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+}
+
+/* Authentication Mode styles */
+#app.auth-mode .header {
+  justify-content: center;
+}
+
+#app.auth-mode .tab-bar,
+#app.auth-mode .panels {
+  display: none !important;
 }

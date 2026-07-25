@@ -17,6 +17,9 @@ anthropic>=0.28.0           # Claude API (profile extraction + field matching)
 # ── Environment variables ──────────────────────────────────────
 python-dotenv>=1.0.0        # Loads .env for ANTHROPIC_API_KEY etc.
 
+# ── Database ───────────────────────────────────────────────────
+supabase>=2.3.0             # Supabase Python client (profile storage)
+
 # ── Development / testing ──────────────────────────────────────
 httpx>=0.27.0               # Async HTTP client (also used by FastAPI TestClient)
 requests>=2.31.0            # Used by test_extract.py end-to-end script

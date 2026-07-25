@@ -3,9 +3,6 @@
 # Environment variables — never commit secrets
 .env
 
-# SQLite database file — local state only
-fillosophy.db
-
 # Python bytecode
 __pycache__/
 *.pyc

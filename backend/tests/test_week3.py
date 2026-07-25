@@ -33,7 +33,7 @@ sys.path.insert(0, BACKEND_DIR)
 from dotenv import load_dotenv          # noqa: E402
 load_dotenv(os.path.join(BACKEND_DIR, ".env"))
 
-from database.profiles import DB_BACKEND, get_profile  # noqa: E402
+from database.profiles import get_profile  # noqa: E402
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 BASE_URL = "http://localhost:8000"
@@ -71,7 +71,7 @@ if not os.path.isfile(PDF_PATH):
 
 file_size = os.path.getsize(PDF_PATH)
 print(f"\n  PDF found: {PDF_PATH}  ({file_size:,} bytes)")
-print(f"  DB backend: {DB_BACKEND}\n")
+print(f"  DB backend: supabase\n")
 
 # Will be populated by Test 2 and used by subsequent tests
 profile: dict | None = None
@@ -249,15 +249,17 @@ except requests.exceptions.ConnectionError as exc:
     check("Non-PDF returns 400", False)
 
 # ════════════════════════════════════════════════════════════
-# Test 6 — DB backend selector
+# Test 6 — Supabase configuration
 # ════════════════════════════════════════════════════════════
 print(f"\n{SEP}")
-print("Test 6 — DB backend selector")
+print("Test 6 — Supabase configuration")
 print(SEP)
 
-check('DB_BACKEND is valid ("sqlite" or "supabase")',
-      DB_BACKEND in ("sqlite", "supabase"))
-print(f"\n  Active backend: {DB_BACKEND}")
+check('SUPABASE_URL is set',
+      bool(os.getenv("SUPABASE_URL")))
+check('SUPABASE_KEY is set',
+      bool(os.getenv("SUPABASE_KEY")))
+print(f"\n  Active backend: supabase")
 
 # ════════════════════════════════════════════════════════════
 # Final summary

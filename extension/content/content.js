@@ -450,7 +450,10 @@
     let filledCount = 0;
 
     for (const field of fields) {
-      const value = matchFieldToProfile(field, profile);
+      // matchFieldToProfile was removed in the Supabase cleanup.
+      // The legacy FILLOSOPHY_AUTOFILL path is superseded by APPLY_AUTOFILL → applyAutofill().
+      // Return null for all fields so no partial fill is attempted here.
+      const value = null;
       if (value !== null) {
         const el = document.querySelectorAll(
           'input:not([type="hidden"]):not([type="submit"]):not([type="button"])' +
@@ -1217,15 +1220,7 @@
     }
   }
 
-  /**
-   * Fills a single Google Forms field using the appropriate interaction method.
-   * GForms uses Angular internals that require InputEvent (not Event) for text,
-   * and real DOM clicks for radio/checkbox/dropdown.
-   *
-   * @param {Object} descriptor - Field descriptor from detectGoogleFormFields().
-   * @param {string} value      - Value to fill.
-   * @returns {boolean} True if successfully filled.
-   */
+
   /**
    * Fills a Google Forms dropdown by opening it and clicking the matching option.
    *
@@ -1374,26 +1369,6 @@
 
     console.log('[Fillosophy Content] Google Forms filled:', summary);
     return summary;
-  }
-        gf.element.click();
-        const target = String(value).toLowerCase();
-        // Wait a tick for options to render, then click the matching option
-        setTimeout(() => {
-          const options = document.querySelectorAll('[role="option"]');
-          for (const opt of options) {
-            const optText = (opt.getAttribute('data-value') || opt.innerText).toLowerCase().trim();
-            if (optText === target || optText.includes(target) || target.includes(optText)) {
-              opt.click();
-              return;
-            }
-          }
-        }, 150);
-        return true;
-      }
-    } catch (err) {
-      console.error('[Fillosophy Content] fillGoogleFormField error:', err);
-    }
-    return false;
   }
 
   // ════════════════════════════════════════════════════════════

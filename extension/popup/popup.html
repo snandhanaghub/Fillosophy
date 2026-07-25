@@ -18,13 +18,61 @@
       <div class="header-logo">
         <img src="logo.png" alt="Fillosophy" class="logo-img" />
       </div>
-      <button class="header-refresh-btn" id="header-refresh-btn" aria-label="Refresh popup">
-        <svg class="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M23 4v6h-6M1 20v-6h6" />
-          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-        </svg>
-      </button>
     </header>
+
+    <!-- LOGIN SCREEN -->
+    <section id="screen-login" class="auth-screen" hidden>
+      <form id="login-form" class="auth-form">
+        <div class="field-group">
+          <label class="field-label" for="login-email">Email</label>
+          <input class="auth-input" id="login-email" type="email" placeholder="email@example.com" required autocomplete="email" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="login-password">Password</label>
+          <div class="password-wrapper">
+            <input class="auth-input" id="login-password" type="password" placeholder="••••••••" required autocomplete="current-password" />
+            <button type="button" class="password-toggle" id="login-password-toggle" aria-label="Toggle password visibility">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="login-btn">Log In</button>
+      </form>
+      <p class="auth-toggle">Don't have an account? <a href="#" id="to-signup" class="switch-link">Sign up</a></p>
+      <p id="login-status" class="upload-status" aria-live="polite"></p>
+    </section>
+
+    <!-- SIGNUP SCREEN -->
+    <section id="screen-signup" class="auth-screen" hidden>
+      <form id="signup-form" class="auth-form">
+        <div class="field-group">
+          <label class="field-label" for="signup-name">Name</label>
+          <input class="auth-input" id="signup-name" type="text" placeholder="Your Name" required autocomplete="name" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="signup-email">Email</label>
+          <input class="auth-input" id="signup-email" type="email" placeholder="email@example.com" required autocomplete="email" />
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="signup-password">Password</label>
+          <div class="password-wrapper">
+            <input class="auth-input" id="signup-password" type="password" placeholder="••••••••" required autocomplete="new-password" />
+            <button type="button" class="password-toggle" id="signup-password-toggle" aria-label="Toggle password visibility">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" id="signup-btn">Create Account</button>
+      </form>
+      <p class="auth-toggle">Already have an account? <a href="#" id="to-login" class="switch-link">Log in</a></p>
+      <p id="signup-status" class="upload-status" aria-live="polite"></p>
+    </section>
 
     <!-- TAB BAR -->
     <nav class="tab-bar" role="tablist">
@@ -206,6 +254,21 @@
     <!-- FOOTER -->
     <footer class="footer">
       <span class="footer-text">Fillosophy &copy; 2026</span>
+      <div class="footer-actions">
+        <button class="footer-btn" id="header-refresh-btn" aria-label="Refresh popup">
+          <svg class="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 4v6h-6M1 20v-6h6" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+        </button>
+        <button class="footer-btn" id="header-logout-btn" aria-label="Log out" style="display: none;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+        </button>
+      </div>
     </footer>
 
   </div><!-- /#app -->

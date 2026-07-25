@@ -15,10 +15,10 @@ const TAB_IDS = ['upload', 'profiles', 'autofill'];
 const DEFAULT_TAB = 'upload';
 
 /** Backend endpoint for resume extraction. */
-const EXTRACT_URL = 'http://localhost:8000/extract';
+const EXTRACT_URL = 'http://localhost:8000/extract/';
 
 /** Backend endpoint for profile import sync. */
-const IMPORT_URL = 'http://localhost:8000/profiles/import';
+const IMPORT_URL = 'http://localhost:8000/profiles/import/';
 
 /** Only PDFs are accepted by the upload flow. */
 const ACCEPTED_MIME = 'application/pdf';
@@ -165,12 +165,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ── Retrieve last active tab or set dynamic default ─────
-  chrome.storage.local.get(['last_tab', 'fillosophy_active'], (result) => {
-    const activeProfileName = result?.fillosophy_active?.activeProfile;
-    let initialTab = result?.last_tab || (activeProfileName ? 'autofill' : 'upload');
-    switchTab(initialTab);
-  });
+  // ── Check Auth state ────────────────────────────────────
+  checkAuthState();
 
   // ── Wire dropzone ───────────────────────────────────────
   initDropzone({ dropzone, fileInput, dropzoneTitle, dropzoneSub,
@@ -213,6 +209,140 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Load profile chips on startup ──────────────────────────────
   renderProfileChips();
+
+  // ── Wire login form ─────────────────────────────────────
+  const loginForm = document.getElementById('login-form');
+  const loginStatus = document.getElementById('login-status');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      const loginBtn = document.getElementById('login-btn');
+
+      setStatus(loginStatus, '', '');
+      setAuthButtonLoading(loginBtn, true, 'Log In');
+
+      try {
+        const response = await fetch('http://localhost:8000/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.status === 'success') {
+          chrome.storage.local.set({ supabase_session: data.session }, () => {
+            enterApp();
+          });
+        } else {
+          setStatus(loginStatus, `✗ ${data.detail || 'Log in failed'}`, 'error');
+        }
+      } catch (err) {
+        setStatus(loginStatus, '⚠️ The backend server is offline.', 'error');
+      } finally {
+        setAuthButtonLoading(loginBtn, false, 'Log In');
+      }
+    });
+  }
+
+  // ── Wire signup form ─────────────────────────────────────
+  const signupForm = document.getElementById('signup-form');
+  const signupStatus = document.getElementById('signup-status');
+  if (signupForm) {
+    signupForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('signup-name').value;
+      const email = document.getElementById('signup-email').value;
+      const password = document.getElementById('signup-password').value;
+      const signupBtn = document.getElementById('signup-btn');
+
+      setStatus(signupStatus, '', '');
+      setAuthButtonLoading(signupBtn, true, 'Create Account');
+
+      try {
+        const response = await fetch('http://localhost:8000/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, password })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.status === 'success') {
+          if (data.session) {
+            chrome.storage.local.set({ supabase_session: data.session }, () => {
+              enterApp();
+            });
+          } else {
+            setStatus(signupStatus, '✓ Account created! Please check your email to verify.', 'success');
+            setTimeout(() => {
+              showAuthScreen('login');
+            }, 3000);
+          }
+        } else {
+          setStatus(signupStatus, `✗ ${data.detail || 'Sign up failed'}`, 'error');
+        }
+      } catch (err) {
+        setStatus(signupStatus, '⚠️ The backend server is offline.', 'error');
+      } finally {
+        setAuthButtonLoading(signupBtn, false, 'Create Account');
+      }
+    });
+  }
+
+  // ── Wire switch screen links ──────────────────────────────
+  const toSignup = document.getElementById('to-signup');
+  const toLogin = document.getElementById('to-login');
+  if (toSignup) {
+    toSignup.addEventListener('click', (e) => {
+      e.preventDefault();
+      showAuthScreen('signup');
+    });
+  }
+  if (toLogin) {
+    toLogin.addEventListener('click', (e) => {
+      e.preventDefault();
+      showAuthScreen('login');
+    });
+  }
+
+  // ── Wire password visibility toggles ──────────────────────
+  const loginPassToggle = document.getElementById('login-password-toggle');
+  const loginPassInput = document.getElementById('login-password');
+  if (loginPassToggle && loginPassInput) {
+    loginPassToggle.addEventListener('click', () => {
+      const isPass = loginPassInput.type === 'password';
+      loginPassInput.type = isPass ? 'text' : 'password';
+      loginPassToggle.classList.toggle('active', !isPass);
+    });
+  }
+
+  const signupPassToggle = document.getElementById('signup-password-toggle');
+  const signupPassInput = document.getElementById('signup-password');
+  if (signupPassToggle && signupPassInput) {
+    signupPassToggle.addEventListener('click', () => {
+      const isPass = signupPassInput.type === 'password';
+      signupPassInput.type = isPass ? 'text' : 'password';
+      signupPassToggle.classList.toggle('active', !isPass);
+    });
+  }
+
+  // ── Wire Logout button ────────────────────────────────────
+  const logoutBtn = document.getElementById('header-logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      chrome.storage.local.remove(['supabase_session'], async () => {
+        try {
+          await fetch('http://localhost:8000/auth/logout', { method: 'POST' });
+        } catch (err) {
+          // ignore offline logout failure
+        }
+        showAuthScreen('login');
+      });
+    });
+  }
 });
 
 // ════════════════════════════════════════════════════════════
@@ -683,7 +813,7 @@ async function handleExtract(els) {
       await setActiveProfile(profileName);
       console.log(`[Fillosophy] Profile saved to chrome.storage`);
     } catch (storageErr) {
-      // Non-fatal — the backend already saved to SQLite; just warn
+      // Non-fatal — the backend already saved to Supabase; just warn
       console.warn('[Fillosophy] chrome.storage save failed:', storageErr.message);
     }
 
@@ -1469,4 +1599,119 @@ function renderMatchPreviewInPopup() {
     card.appendChild(valDiv);
     previewList.appendChild(card);
   });
+}
+
+// ════════════════════════════════════════════════════════════
+// AUTHENTICATION FLOW HELPERS
+// ════════════════════════════════════════════════════════════
+
+/**
+ * Checks if the user has a valid Supabase session.
+ * If verified, redirects to the main app layout. Otherwise shows the login screen.
+ */
+async function checkAuthState() {
+  const loginStatus = document.getElementById('login-status');
+  if (loginStatus) setStatus(loginStatus, '', '');
+
+  chrome.storage.local.get(['supabase_session'], async (result) => {
+    const session = result.supabase_session;
+
+    if (!session || !session.access_token) {
+      showAuthScreen('login');
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:8000/auth/verify', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.status === 'success') {
+          enterApp();
+        } else {
+          showAuthScreen('login');
+        }
+      } else {
+        showAuthScreen('login');
+      }
+    } catch (err) {
+      console.error('[Fillosophy Auth] Session verification failed:', err.message);
+      showAuthScreen('login');
+      if (loginStatus) {
+        setStatus(loginStatus, '⚠️ The backend server is offline. Please start it to authenticate.', 'error');
+      }
+    }
+  });
+}
+
+/**
+ * Shows the login or signup auth screens and hides the main panels.
+ * @param {'login'|'signup'} screen
+ */
+function showAuthScreen(screen) {
+  const appContainer = document.getElementById('app');
+  const loginScreen = document.getElementById('screen-login');
+  const signupScreen = document.getElementById('screen-signup');
+  const logoutBtn = document.getElementById('header-logout-btn');
+
+  if (appContainer) appContainer.classList.add('auth-mode');
+  if (logoutBtn) logoutBtn.style.display = 'none';
+
+  // Clear inputs and status
+  const loginStatus = document.getElementById('login-status');
+  const signupStatus = document.getElementById('signup-status');
+  if (loginStatus) setStatus(loginStatus, '', '');
+  if (signupStatus) setStatus(signupStatus, '', '');
+
+  if (screen === 'login') {
+    if (loginScreen) loginScreen.removeAttribute('hidden');
+    if (signupScreen) signupScreen.setAttribute('hidden', '');
+  } else {
+    if (signupScreen) signupScreen.removeAttribute('hidden');
+    if (loginScreen) loginScreen.setAttribute('hidden', '');
+  }
+}
+
+/**
+ * Hides authentication screens and presents the main application panels.
+ */
+function enterApp() {
+  const appContainer = document.getElementById('app');
+  const loginScreen = document.getElementById('screen-login');
+  const signupScreen = document.getElementById('screen-signup');
+  const logoutBtn = document.getElementById('header-logout-btn');
+
+  if (appContainer) appContainer.classList.remove('auth-mode');
+  if (loginScreen) loginScreen.setAttribute('hidden', '');
+  if (signupScreen) signupScreen.setAttribute('hidden', '');
+  if (logoutBtn) logoutBtn.style.display = 'flex';
+
+  // Load the initial tab selection
+  chrome.storage.local.get(['last_tab', 'fillosophy_active'], (result) => {
+    const activeProfileName = result?.fillosophy_active?.activeProfile;
+    let initialTab = result?.last_tab || (activeProfileName ? 'autofill' : 'upload');
+    switchTab(initialTab);
+  });
+}
+
+/**
+ * Controls the loading state/text of authentication action buttons.
+ * @param {HTMLButtonElement} btn
+ * @param {boolean} isLoading
+ * @param {string} originalText
+ */
+function setAuthButtonLoading(btn, isLoading, originalText) {
+  if (!btn) return;
+  if (isLoading) {
+    btn.disabled = true;
+    btn.textContent = 'Please wait...';
+  } else {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
 }

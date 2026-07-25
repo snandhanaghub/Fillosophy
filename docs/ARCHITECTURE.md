@@ -21,10 +21,10 @@ Fillosophy utilizes a standard Manifest V3 Chrome Extension architecture that co
 |  +-----------------------------+  |          |  | AI Logic (Claude API)|  |
 |  | Content Script (content.js) |  |          |  +--------------------+  |
 |  |  (Injected into active tab, |  |          |  +--------------------+  |
-|  |   detects fields, fills DOM)|  |          |  | DB Layer (SQLite /   |  |
-|  +-----------------------------+  |          |  |   Supabase)          |  |
-|                                   |          |  +--------------------+  |
-+-----------------------------------+          +--------------------------+
+|  |   detects fields, fills DOM)|  |          |  | DB Layer (Supabase)  |  |
+|  +-----------------------------+  |          |  +--------------------+  |
+|                                   |          +--------------------------+
++-----------------------------------+
 ```
 
 1. **Popup UI**: Acts as the main controller. It manages user interactions (resume uploads, triggering autofill), stores state in `chrome.storage.local`, and communicates with both the background/content scripts and the FastAPI backend.
@@ -35,17 +35,15 @@ Fillosophy utilizes a standard Manifest V3 Chrome Extension architecture that co
 
 ## Database Abstraction Layer
 
-Fillosophy is designed with a swappable database abstraction layer, allowing developers to switch between local SQLite storage and remote Supabase (PostgreSQL) storage without modifying the core API routes.
-
-The abstraction layer lives in `backend/database/profiles.py`.
+Fillosophy uses Supabase (PostgreSQL) for all profile storage. The database abstraction layer lives in `backend/database/profiles.py`.
 
 ### How It Works
 - `profiles.py` exports unified functions: `save_profile`, `get_profile`, `list_profiles`, and `delete_profile`.
-- It dynamically imports either `sqlite_client.py` or `supabase_client.py` based on the environment configuration (or fallback logic).
-- To switch from the default local SQLite database to Supabase:
-  1. Follow the instructions in `SUPABASE_SETUP.md` to create your remote project.
+- It uses `supabase_db.py`, which lazily initialises the Supabase Python client on first use.
+- To configure:
+  1. Create a Supabase project and run the `CREATE TABLE` SQL from the `supabase_db.py` module docstring.
   2. Provide the `SUPABASE_URL` and `SUPABASE_KEY` variables in your backend `.env` file.
-  3. The `profiles.py` module will automatically detect the keys, establish a connection using the Supabase Python SDK, and route all subsequent queries to the cloud database.
+  3. The client connects automatically on startup and routes all queries to the cloud database.
 
 ---
 

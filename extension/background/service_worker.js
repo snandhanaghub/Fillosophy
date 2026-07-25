@@ -19,7 +19,10 @@ const BACKEND_BASE_URL = 'http://localhost:8000';
  * @throws {Error} If no active tab is found.
  */
 async function getActiveTab() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  // Use lastFocusedWindow (not currentWindow) so that when the extension popup
+  // is open (which is its own window), we still find the browser tab the user
+  // was on — not the popup window itself (which has no tabs).
+  const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tabs || tabs.length === 0) {
     throw new Error('No active tab found');
   }

@@ -22,7 +22,7 @@ Filling out the same job application details over and over across different port
 | **Backend**     | Python, FastAPI, Uvicorn                         |
 | **AI / LLMs**   | Anthropic Claude (via API), Groq/OpenRouter fallback |
 | **Parsing**     | pdfplumber                                       |
-| **Database**    | SQLite                                           |
+| **Database**    | Supabase (PostgreSQL)                            |
 
 ## Installation
 
@@ -43,8 +43,10 @@ Filling out the same job application details over and over across different port
    ```
 4. Set up your environment variables by creating a `.env` file:
    ```env
-   ANTHROPIC_API_KEY=your_claude_api_key
-   # MOCK_AI=true # Uncomment to test without API credits
+    ANTHROPIC_API_KEY=your_claude_api_key
+    SUPABASE_URL=https://your-project-id.supabase.co
+    SUPABASE_KEY=your-supabase-anon-or-service-role-key
+    # MOCK_AI=true # Uncomment to test without API credits
    ```
 5. Run the FastAPI server:
    ```bash
@@ -68,7 +70,7 @@ Filling out the same job application details over and over across different port
 ```text
 Fillosophy/
 ├── backend/
-│   ├── database/          # SQLite and Supabase abstraction layers
+│   ├── database/          # Supabase database abstraction layer
 │   ├── routes/            # FastAPI endpoint handlers (extract, match, profiles)
 │   ├── utils/             # pdfplumber parsing and AI client wrappers
 │   ├── main.py            # FastAPI application entry point

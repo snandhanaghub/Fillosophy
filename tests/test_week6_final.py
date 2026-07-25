@@ -43,9 +43,9 @@ except requests.exceptions.ConnectionError:
     print("FATAL: Backend is not running on localhost:8000. Aborting tests.")
     exit(1)
 
-# Check database initialized
-db_exists = os.path.exists("backend/fillosophy.db")
-check("Database initialized", db_exists)
+# Check database configured (Supabase)
+db_configured = bool(os.environ.get("SUPABASE_URL")) and bool(os.environ.get("SUPABASE_KEY"))
+check("Database configured (Supabase)", db_configured)
 
 # API key loaded is verified by doing a quick mock extraction or relying on the real extraction in Section B
 # We'll just put a placeholder boolean, which we update if Section B extract passes.
