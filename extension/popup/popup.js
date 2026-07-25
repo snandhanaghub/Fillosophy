@@ -440,7 +440,13 @@ function activateTab(tabId, tabBtns, tabPanels) {
  */
 async function syncProfilesFromBackend() {
   try {
-    const resList = await fetch('http://localhost:8000/profiles/list');
+    const token = await getAuthToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const resList = await fetch('http://localhost:8000/profiles/list', { headers });
     if (!resList.ok) throw new Error(`HTTP ${resList.status}`);
     const dataList = await resList.json();
     if (dataList.status === 'success' && Array.isArray(dataList.profiles)) {
@@ -449,7 +455,7 @@ async function syncProfilesFromBackend() {
       // Fetch each profile from backend and save locally
       for (const name of dbProfiles) {
         try {
-          const resSingle = await fetch(`http://localhost:8000/profiles/${name}`);
+          const resSingle = await fetch(`http://localhost:8000/profiles/${name}`, { headers });
           if (resSingle.ok) {
             const dataSingle = await resSingle.json();
             if (dataSingle.status === 'success' && dataSingle.profile_data) {
@@ -542,16 +548,27 @@ async function renderProfileChips() {
   if (activeName) {
     try {
       const profileData = await getProfile(activeName);
-      if (profileData) {
+      if (profileData && Object.keys(profileData).length > 0) {
         currentProfile = profileData;
         displayProfile(profileData);
+      } else if (currentProfile && Object.keys(currentProfile).length > 0) {
+        // Keep unsaved extracted profile data in memory & preview form
+        displayProfile(currentProfile);
+      } else {
+        currentProfile = null;
+        displayProfile(null);
       }
     } catch (err) {
       console.warn('[Fillosophy] Failed to load active profile data:', err.message);
+      if (currentProfile) displayProfile(currentProfile);
     }
   } else {
-    currentProfile = null;
-    displayProfile(null);
+    if (currentProfile && Object.keys(currentProfile).length > 0) {
+      displayProfile(currentProfile);
+    } else {
+      currentProfile = null;
+      displayProfile(null);
+    }
   }
 }
 
@@ -630,9 +647,15 @@ function handleAddProfileChip(container) {
         // Save empty profile locally
         await saveProfile(name, {});
         // Sync empty profile to database
+        const token = await getAuthToken();
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
         await fetch(IMPORT_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             profile_name: name,
             profile_data: {},
@@ -677,8 +700,15 @@ async function handleChipOptions(name) {
   try {
     await deleteProfile(name);
     // Sync deletion to backend
+    const token = await getAuthToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     await fetch(`http://localhost:8000/profiles/${name}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers
     });
 
     // If the deleted profile was active, switch to another or clear
@@ -810,12 +840,12 @@ function applyFileSelection(file, els) {
 }
 
 // ════════════════════════════════════════════════════════════
-// EXTRACT & SAVE
+// EXTRACT RESUME
 // ════════════════════════════════════════════════════════════
 
 /**
  * POSTs the selected PDF to the /extract endpoint.
- * On success: stores the profile, updates the Profiles tab, and switches to it.
+ * On success: loads the extracted data into current profile memory & populates preview in Profiles tab.
  * On failure: surfaces the error in the status bar.
  *
  * Uses the currently active profile name from storage (or defaults to 'personal')
@@ -854,8 +884,15 @@ async function handleExtract(els) {
   try {
     console.log(`[Fillosophy Upload] POST ${EXTRACT_URL}`);
 
+    const token = await getAuthToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(EXTRACT_URL, {
       method: 'POST',
+      headers,
       body: formData,
       // Do NOT set Content-Type — browser sets it with the correct boundary
     });
@@ -887,28 +924,18 @@ async function handleExtract(els) {
 
     displayProfile(data.profile);
 
-    // ── Persist to chrome.storage ───────────────────────────────────────────
-    try {
-      await saveProfile(profileName, data.profile);
-      await setActiveProfile(profileName);
-      console.log(`[Fillosophy] Profile saved to chrome.storage`);
-    } catch (storageErr) {
-      // Non-fatal — the backend already saved to Supabase; just warn
-      console.warn('[Fillosophy] chrome.storage save failed:', storageErr.message);
-    }
-
-    // ── Update status & switch tab ──────────────────────────────────────────
+    // ── Update status ────────────────────────────────────────────────────────
     setStatus(
       uploadStatus,
-      `✓ Profile saved! ${data.profile.full_name} — ${data.char_count} chars extracted.`,
+      `✓ Profile extracted! ${data.profile.full_name} — ${data.char_count} chars extracted.`,
       'success'
     );
 
     // Keep button disabled — user must select a new file to run again
     extractBtn.disabled = true;
 
-    // Switch to Profiles tab after a short delay so the user sees the message
-    setTimeout(() => switchTab('profiles'), 1200);
+    // Switch to Profiles tab after extraction so the user sees the filled fields
+    setTimeout(() => switchTab('profiles'), 800);
 
   } catch (err) {
     const isNetworkError = err instanceof TypeError;
@@ -1139,9 +1166,15 @@ async function handleSaveProfile() {
   // ── Sync to backend (Supabase) ───────────────────────────────────────────
   if (profilesStatus) setStatus(profilesStatus, 'Saving and syncing...', '');
   try {
+    const token = await getAuthToken();
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const res = await fetch(IMPORT_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         profile_name: activeProfileName,
         profile_data: profileData,
@@ -1823,7 +1856,7 @@ function setStatus(el, message, type) {
  * @param {boolean}           isLoading
  */
 function setLoadingState(btn, labelEl, isLoading) {
-  if (labelEl) labelEl.textContent  = isLoading ? 'Extracting…' : 'Extract & Save Profile';
+  if (labelEl) labelEl.textContent  = isLoading ? 'Extracting…' : 'Extract';
   // Only force-disable on entry; re-enable decisions are made by the caller
   if (isLoading) btn.disabled = true;
 }
@@ -1885,6 +1918,18 @@ function renderMatchPreviewInPopup() {
 // ════════════════════════════════════════════════════════════
 // AUTHENTICATION FLOW HELPERS
 // ════════════════════════════════════════════════════════════
+
+/**
+ * Resolves the active user session JWT access token from chrome storage.
+ * @returns {Promise<string|null>}
+ */
+function getAuthToken() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['supabase_session'], (result) => {
+      resolve(result.supabase_session?.access_token || null);
+    });
+  });
+}
 
 /**
  * Checks if the user has a valid Supabase session.

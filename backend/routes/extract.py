@@ -1,20 +1,19 @@
 """
 routes/extract.py — Fillosophy FastAPI Backend
 
-Handles resume file uploads, AI-powered profile extraction, and DB persistence.
+Handles resume file uploads and AI-powered profile extraction.
 
 POST /extract
-    Accepts a PDF resume and a profile name, extracts all readable text
+    Accepts a PDF resume and a profile name, extracts readable text
     via pdfplumber, runs Claude AI extraction to produce a structured
-    profile dict, saves it to the active database backend, and returns
-    the full result.
+    profile dict, and returns the full result without auto-persisting.
 """
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status, Depends
 
-from database.profiles import save_profile
 from utils.ai_client import extract_profile_from_text
 from utils.pdf_parser import extract_text_from_pdf
+from routes.auth import get_current_user_id
 
 router = APIRouter()
 
@@ -27,6 +26,7 @@ router = APIRouter()
 async def extract_resume(
     file: UploadFile = File(..., description="Resume PDF file"),
     profile_name: str = Form(..., description="Label for this profile, e.g. 'Academic'"),
+    user_id: str = Depends(get_current_user_id),
 ) -> dict:
     """
     Full extraction pipeline: PDF → raw text → AI profile → database.
@@ -93,19 +93,7 @@ async def extract_resume(
 
     print(f"[Fillosophy /extract] AI extraction complete: {profile_name}")
 
-    # ── Step 5: persist profile to the active database backend ───────────────
-    try:
-        save_profile(profile_name, profile_data)
-    except RuntimeError as exc:
-        print(f"[Fillosophy /extract] DB save failed: {exc}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Profile could not be saved: {exc}",
-        )
-
-    print(f"[Fillosophy /extract] Profile saved to DB: {profile_name}")
-
-    # ── Step 6: return structured result ─────────────────────────────────────
+    # ── Step 5: return structured result ─────────────────────────────────────
     return {
         "status":       "success",
         "profile_name": profile_name,

@@ -16,11 +16,11 @@
 **3. [0:20-0:35] Profile Extraction**
 - Drag and drop `sample_resume.pdf` into the designated dropzone.
 - The UI updates to show the file is accepted.
-- Click **Extract & Save Profile**. 
+- Click **Extract**. 
 - Briefly show the loading state before the success message appears.
 
 **4. [0:35-0:45] Data Verification**
-- The UI automatically switches to the **Profiles** tab (or switch manually).
+- Switch manually to the **Profiles** tab.
 - Show the populated preview fields (Name, Email, CGPA, Degree, Skills), proving the data was extracted perfectly.
 
 **5. [0:45-0:55] Context Switch**

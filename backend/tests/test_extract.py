@@ -29,7 +29,7 @@ import sys
 import requests
 
 # Add the backend directory to sys.path so we can import local modules directly
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from utils.pdf_parser import extract_text_from_pdf  # noqa: E402
 

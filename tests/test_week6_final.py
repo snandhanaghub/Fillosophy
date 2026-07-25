@@ -16,6 +16,12 @@ TEST_PDF = os.path.join(os.path.dirname(__file__), "sample_resume.pdf")
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 os.chdir(project_root)
 
+try:
+    import dotenv
+    dotenv.load_dotenv(os.path.join(project_root, "backend", ".env"))
+except ImportError:
+    pass
+
 passed = 0
 total = 0
 
@@ -76,7 +82,14 @@ except FileNotFoundError:
 
 check("API key loaded (verified via /extract success)", api_key_works)
 
-# Check persistence
+# Check persistence — save/persist extracted profile first via the profiles import endpoint
+if extract_profile:
+    import_payload = {
+        "profile_name": "test_regression",
+        "profile_data": extract_profile
+    }
+    requests.post(f"{BASE_URL}/profiles/import", json=import_payload)
+
 res_persist = requests.get(f"{BASE_URL}/profiles/test_regression")
 check("Profile persists", res_persist.status_code == 200 and res_persist.json().get("profile") is not None)
 

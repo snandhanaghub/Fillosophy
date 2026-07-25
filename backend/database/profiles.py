@@ -16,17 +16,17 @@ def init_db() -> None:
     return db.init_db()
 
 
-def save_profile(name: str, data: dict) -> None:
-    return db.save_profile(name, data)
+def save_profile(name: str, data: dict, user_id: str = "00000000-0000-0000-0000-000000000000") -> None:
+    return db.save_profile(name, data, user_id)
 
 
-def get_profile(name: str) -> dict | None:
-    return db.get_profile(name)
+def get_profile(name: str, user_id: str = "00000000-0000-0000-0000-000000000000") -> dict | None:
+    return db.get_profile(name, user_id)
 
 
-def list_profiles() -> list[str]:
-    return db.list_profiles()
+def list_profiles(user_id: str = "00000000-0000-0000-0000-000000000000") -> list[str]:
+    return db.list_profiles(user_id)
 
 
-def delete_profile(name: str) -> None:
-    return db.delete_profile(name)
+def delete_profile(name: str, user_id: str = "00000000-0000-0000-0000-000000000000") -> None:
+    return db.delete_profile(name, user_id)

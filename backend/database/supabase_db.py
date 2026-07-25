@@ -6,9 +6,12 @@ Expected table schema (run once in the Supabase SQL editor):
 
     CREATE TABLE IF NOT EXISTS profiles (
         id         BIGSERIAL PRIMARY KEY,
-        name       TEXT UNIQUE NOT NULL,
+        user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+        name       TEXT NOT NULL,
         data       JSONB NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (user_id, name)
     );
 
 Environment variables required:
@@ -79,31 +82,54 @@ class SupabaseProfileDB(ProfileDB):
 
     # ─── Write ────────────────────────────────────────────────────────────────
 
-    def save_profile(self, name: str, data: dict) -> None:
-        """Insert or replace a profile. Uses upsert on the `name` unique column."""
+    def save_profile(self, name: str, data: dict, user_id: str = "00000000-0000-0000-0000-000000000000") -> None:
+        """Insert or replace a profile. Uses upsert on the `user_id,name` unique columns."""
+        client = _get_client()
         try:
-            logger.info("%s Saving profile '%s'.", LOG_PREFIX, name)
-            client = _get_client()
+            logger.info("%s Saving profile '%s' for user '%s'.", LOG_PREFIX, name, user_id)
             client.table(self.TABLE).upsert(
-                {"name": name, "data": data},
-                on_conflict="name",
+                {"user_id": user_id, "name": name, "data": data},
+                on_conflict="user_id,name",
             ).execute()
             logger.info("%s Profile '%s' saved successfully.", LOG_PREFIX, name)
         except Exception as exc:
+            exc_str = str(exc)
+            if "42703" in exc_str or "user_id" in exc_str:
+                logger.warning(
+                    "%s WARNING: 'user_id' column does not exist in the profiles table. "
+                    "Please run schema.sql in your Supabase SQL editor to enable user isolation. "
+                    "Falling back to global profiles table...", LOG_PREFIX
+                )
+                print(
+                    f"{LOG_PREFIX} WARNING: 'user_id' column not found in database. "
+                    f"Please run schema.sql to enable user-scoped isolation. "
+                    f"Saving profile '{name}' globally."
+                )
+                try:
+                    client.table(self.TABLE).upsert(
+                        {"name": name, "data": data},
+                        on_conflict="name",
+                    ).execute()
+                    return
+                except Exception as fallback_exc:
+                    raise RuntimeError(
+                        f"{LOG_PREFIX} Failed to save profile '{name}' (fallback): {fallback_exc}"
+                    ) from fallback_exc
             raise RuntimeError(
                 f"{LOG_PREFIX} Failed to save profile '{name}': {exc}"
             ) from exc
 
     # ─── Read ─────────────────────────────────────────────────────────────────
 
-    def get_profile(self, name: str) -> dict | None:
-        """Return the profile dict for name, or None if no matching row exists."""
+    def get_profile(self, name: str, user_id: str = "00000000-0000-0000-0000-000000000000") -> dict | None:
+        """Return the profile dict for name and user_id, or None if no matching row exists."""
+        client = _get_client()
         try:
-            logger.info("%s Fetching profile '%s'.", LOG_PREFIX, name)
-            client = _get_client()
+            logger.info("%s Fetching profile '%s' for user '%s'.", LOG_PREFIX, name, user_id)
             result = (
                 client.table(self.TABLE)
                 .select("data")
+                .eq("user_id", user_id)
                 .eq("name", name)
                 .limit(1)
                 .execute()
@@ -117,18 +143,46 @@ class SupabaseProfileDB(ProfileDB):
             # Supabase returns JSONB columns as Python dicts already
             return raw if isinstance(raw, dict) else json.loads(raw)
         except Exception as exc:
+            exc_str = str(exc)
+            if "42703" in exc_str or "user_id" in exc_str:
+                logger.warning(
+                    "%s WARNING: 'user_id' column does not exist in the profiles table. "
+                    "Falling back to global profiles table...", LOG_PREFIX
+                )
+                print(
+                    f"{LOG_PREFIX} WARNING: 'user_id' column not found in database. "
+                    f"Retrieving profile '{name}' globally."
+                )
+                try:
+                    result = (
+                        client.table(self.TABLE)
+                        .select("data")
+                        .eq("name", name)
+                        .limit(1)
+                        .execute()
+                    )
+                    rows = result.data
+                    if not rows:
+                        return None
+                    raw = rows[0]["data"]
+                    return raw if isinstance(raw, dict) else json.loads(raw)
+                except Exception as fallback_exc:
+                    raise RuntimeError(
+                        f"{LOG_PREFIX} Failed to retrieve profile '{name}' (fallback): {fallback_exc}"
+                    ) from fallback_exc
             raise RuntimeError(
                 f"{LOG_PREFIX} Failed to retrieve profile '{name}': {exc}"
             ) from exc
 
-    def list_profiles(self) -> list[str]:
-        """Return a list of all profile names ordered by creation time."""
+    def list_profiles(self, user_id: str = "00000000-0000-0000-0000-000000000000") -> list[str]:
+        """Return a list of all profile names for user_id ordered by creation time."""
+        client = _get_client()
         try:
-            logger.info("%s Listing all profiles.", LOG_PREFIX)
-            client = _get_client()
+            logger.info("%s Listing all profiles for user '%s'.", LOG_PREFIX, user_id)
             result = (
                 client.table(self.TABLE)
                 .select("name")
+                .eq("user_id", user_id)
                 .order("created_at", desc=False)
                 .execute()
             )
@@ -136,20 +190,60 @@ class SupabaseProfileDB(ProfileDB):
             logger.info("%s Found %d profile(s).", LOG_PREFIX, len(names))
             return names
         except Exception as exc:
+            exc_str = str(exc)
+            if "42703" in exc_str or "user_id" in exc_str:
+                logger.warning(
+                    "%s WARNING: 'user_id' column does not exist in the profiles table. "
+                    "Falling back to global profiles table...", LOG_PREFIX
+                )
+                print(
+                    f"{LOG_PREFIX} WARNING: 'user_id' column not found in database. "
+                    f"Listing profiles globally."
+                )
+                try:
+                    result = (
+                        client.table(self.TABLE)
+                        .select("name")
+                        .order("created_at", desc=False)
+                        .execute()
+                    )
+                    names = [row["name"] for row in result.data]
+                    return names
+                except Exception as fallback_exc:
+                    raise RuntimeError(
+                        f"{LOG_PREFIX} Failed to list profiles (fallback): {fallback_exc}"
+                    ) from fallback_exc
             raise RuntimeError(
                 f"{LOG_PREFIX} Failed to list profiles: {exc}"
             ) from exc
 
     # ─── Delete ───────────────────────────────────────────────────────────────
 
-    def delete_profile(self, name: str) -> None:
-        """Delete the profile with the given name (no-op if it does not exist)."""
+    def delete_profile(self, name: str, user_id: str = "00000000-0000-0000-0000-000000000000") -> None:
+        """Delete the profile with the given name for user_id (no-op if it does not exist)."""
+        client = _get_client()
         try:
-            logger.info("%s Deleting profile '%s'.", LOG_PREFIX, name)
-            client = _get_client()
-            client.table(self.TABLE).delete().eq("name", name).execute()
+            logger.info("%s Deleting profile '%s' for user '%s'.", LOG_PREFIX, name, user_id)
+            client.table(self.TABLE).delete().eq("user_id", user_id).eq("name", name).execute()
             logger.info("%s Profile '%s' deleted.", LOG_PREFIX, name)
         except Exception as exc:
+            exc_str = str(exc)
+            if "42703" in exc_str or "user_id" in exc_str:
+                logger.warning(
+                    "%s WARNING: 'user_id' column does not exist in the profiles table. "
+                    "Falling back to global profiles table...", LOG_PREFIX
+                )
+                print(
+                    f"{LOG_PREFIX} WARNING: 'user_id' column not found in database. "
+                    f"Deleting profile '{name}' globally."
+                )
+                try:
+                    client.table(self.TABLE).delete().eq("name", name).execute()
+                    return
+                except Exception as fallback_exc:
+                    raise RuntimeError(
+                        f"{LOG_PREFIX} Failed to delete profile '{name}' (fallback): {fallback_exc}"
+                    ) from fallback_exc
             raise RuntimeError(
                 f"{LOG_PREFIX} Failed to delete profile '{name}': {exc}"
             ) from exc
