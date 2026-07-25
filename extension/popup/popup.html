@@ -215,20 +215,27 @@
 
         <!-- Action buttons -->
         <div class="btn-row">
-          <button class="btn btn-outline" id="export-json-btn">
+          <button class="btn btn-outline" id="export-json-btn" type="button">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
               <path d="M6.5 9V1M3.5 6l3 3 3-3M1 10v1.5A1.5 1.5 0 002.5 13h8a1.5 1.5 0 001.5-1.5V10"
                 stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
             Export JSON
           </button>
-          <button class="btn btn-primary" id="save-profile-btn">
+          <button class="btn btn-outline" id="delete-profile-btn" type="button">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+            <span id="delete-profile-btn-label">Delete</span>
+          </button>
+          <button class="btn btn-primary" id="save-profile-btn" type="button">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
               <polyline points="17 21 17 13 7 13 7 21"/>
               <polyline points="7 3 7 8 15 8"/>
             </svg>
-            Save Profile
+            <span id="save-profile-btn-label">Save Profile</span>
           </button>
         </div>
 
@@ -276,9 +283,9 @@
         </div>
 
         <!-- Dynamic field match preview list -->
-        <div id="autofill-preview-section" class="section-block" style="display: none; margin-top: -8px; margin-bottom: -8px;">
-          <span class="section-label" style="margin-bottom: 6px;">FIELD MATCH PREVIEW</span>
-          <div id="autofill-preview-list" style="display: flex; flex-direction: column; gap: 6px;">
+        <div id="autofill-preview-section" class="section-block autofill-preview-section" hidden>
+          <span class="section-label autofill-preview-section-label">FIELD MATCH PREVIEW</span>
+          <div id="autofill-preview-list" class="autofill-preview-list">
             <!-- Dynamic items go here -->
           </div>
         </div>
@@ -305,7 +312,7 @@
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </button>
-        <button class="footer-btn" id="header-logout-btn" aria-label="Log out" style="display: none;">
+        <button class="footer-btn" id="header-logout-btn" aria-label="Log out" hidden>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16 17 21 12 16 7" />

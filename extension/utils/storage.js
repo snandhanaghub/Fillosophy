@@ -252,3 +252,28 @@ export async function deleteProfile(name) {
     throw err;
   }
 }
+
+// ── clearAllProfiles ─────────────────────────────────────────
+
+/**
+ * Removes all stored profile keys ("profile_*") and the active profile key
+ * from chrome.storage.local to enforce user data isolation across login sessions.
+ *
+ * @returns {Promise<void>}
+ */
+export async function clearAllProfiles() {
+  console.log('[Fillosophy Storage] clearAllProfiles → removing all profile keys');
+  try {
+    const all = await storageGet(null);
+    const keysToRemove = Object.keys(all).filter(
+      (key) => key.startsWith(PROFILE_PREFIX) || key === ACTIVE_PROFILE_KEY
+    );
+    if (keysToRemove.length > 0) {
+      await storageRemove(keysToRemove);
+      console.log(`[Fillosophy Storage] clearAllProfiles ✓ removed ${keysToRemove.length} key(s)`);
+    }
+  } catch (err) {
+    console.error('[Fillosophy Storage] clearAllProfiles ✗:', err.message);
+    throw err;
+  }
+}

@@ -1,7 +1,7 @@
 // Fillosophy — Popup controller | Tab switching, PDF upload, backend fetch
 // Wires the nand-redesigned HTML to main's backend endpoints and extension logic.
 
-import { saveProfile, setActiveProfile, getProfile, getActiveProfile, listProfiles, deleteProfile } from '../utils/storage.js';
+import { saveProfile, setActiveProfile, getProfile, getActiveProfile, listProfiles, deleteProfile, clearAllProfiles } from '../utils/storage.js';
 import { applyTemplateMatching } from '../utils/templates.js';
 
 // ════════════════════════════════════════════════════════════
@@ -22,6 +22,10 @@ const IMPORT_URL = 'http://localhost:8000/profiles/import/';
 
 /** Only PDFs are accepted by the upload flow. */
 const ACCEPTED_MIME = 'application/pdf';
+
+/** Motion timings (must stay aligned with popup.css duration scale). */
+const PANEL_SWITCH_DURATION_MS = 240;
+const PANEL_SWITCH_STAGGER_MS = 30;
 
 // ════════════════════════════════════════════════════════════
 // CHROME MESSAGING HELPER
@@ -69,6 +73,7 @@ let selectedFile = null;
  */
 let currentProfile = null;
 let currentProfileName = null;
+let pendingExtractedProfileData = null;
 let lastUploadTimestamp = null;
 let fieldMatchingCacheTimestamp = null;
 
@@ -77,8 +82,10 @@ let fieldMatchingCacheTimestamp = null;
  * without needing to pass DOM refs as arguments every time.
  * Populated in DOMContentLoaded.
  */
-let _tabBtns   = {};
+let _tabBtns = {};
 let _tabPanels = {};
+const panelHideTimers = new Map();
+let previewSectionHideTimer = null;
 
 /**
  * Full descriptor objects returned by the last DETECT_FIELDS call.
@@ -146,16 +153,16 @@ document.addEventListener('DOMContentLoaded', () => {
   );
 
   // ── Upload tab elements ─────────────────────────────────
-  const dropzone        = document.getElementById('dropzone');
-  const fileInput       = document.getElementById('resume-file-input');
-  const dropzoneTitle   = document.getElementById('dropzone-title');
-  const dropzoneSub     = document.getElementById('dropzone-sub');
-  const extractBtn      = document.getElementById('extract-btn');
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('resume-file-input');
+  const dropzoneTitle = document.getElementById('dropzone-title');
+  const dropzoneSub = document.getElementById('dropzone-sub');
+  const extractBtn = document.getElementById('extract-btn');
   const extractBtnLabel = document.getElementById('extract-btn-label');
-  const uploadStatus    = document.getElementById('upload-status');
+  const uploadStatus = document.getElementById('upload-status');
 
   // ── Initial state ───────────────────────────────────────
-  extractBtn.disabled      = true;   // enabled only after a valid file is chosen
+  extractBtn.disabled = true;   // enabled only after a valid file is chosen
   uploadStatus.textContent = '';
 
   // ── Wire tabs ───────────────────────────────────────────
@@ -169,8 +176,10 @@ document.addEventListener('DOMContentLoaded', () => {
   checkAuthState();
 
   // ── Wire dropzone ───────────────────────────────────────
-  initDropzone({ dropzone, fileInput, dropzoneTitle, dropzoneSub,
-                 extractBtn, uploadStatus });
+  initDropzone({
+    dropzone, fileInput, dropzoneTitle, dropzoneSub,
+    extractBtn, uploadStatus
+  });
 
   // ── Wire extract button ────────────────────────────────────────
   // Nand redesign removed the profile-name select dropdown.
@@ -195,6 +204,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveProfileBtn = document.getElementById('save-profile-btn');
   if (saveProfileBtn) {
     saveProfileBtn.addEventListener('click', handleSaveProfile);
+  }
+
+  // ── Wire Delete Profile button ─────────────────────────────────
+  const deleteProfileBtn = document.getElementById('delete-profile-btn');
+  if (deleteProfileBtn) {
+    deleteProfileBtn.addEventListener('click', handleDeleteProfile);
   }
 
   // ── Wire Add Experience & Add Project buttons ──────────────────
@@ -256,10 +271,10 @@ document.addEventListener('DOMContentLoaded', () => {
             enterApp();
           });
         } else {
-          setStatus(loginStatus, `✗ ${data.detail || 'Log in failed'}`, 'error');
+          setStatus(loginStatus, data.detail || 'Login failed.', 'error');
         }
       } catch (err) {
-        setStatus(loginStatus, '⚠️ The backend server is offline.', 'error');
+        setStatus(loginStatus, 'Server offline.', 'error');
       } finally {
         setAuthButtonLoading(loginBtn, false, 'Log In');
       }
@@ -290,21 +305,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await response.json();
 
         if (response.ok && data.status === 'success') {
-          if (data.session) {
-            chrome.storage.local.set({ supabase_session: data.session }, () => {
-              enterApp();
-            });
-          } else {
-            setStatus(signupStatus, '✓ Account created! Please check your email to verify.', 'success');
-            setTimeout(() => {
-              showAuthScreen('login');
-            }, 3000);
-          }
+          setStatus(signupStatus, 'Account created. Check email to verify.', 'success');
         } else {
-          setStatus(signupStatus, `✗ ${data.detail || 'Sign up failed'}`, 'error');
+          setStatus(signupStatus, data.detail || 'Signup failed.', 'error');
         }
       } catch (err) {
-        setStatus(signupStatus, '⚠️ The backend server is offline.', 'error');
+        setStatus(signupStatus, 'Server offline.', 'error');
       } finally {
         setAuthButtonLoading(signupBtn, false, 'Create Account');
       }
@@ -358,6 +364,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
           // ignore offline logout failure
         }
+        try {
+          await clearAllProfiles();
+        } catch (err) {
+          console.warn('[Fillosophy] Failed to clear local profiles on logout:', err.message);
+        }
+        currentProfile = null;
+        currentProfileName = null;
+        fieldMapping = {};
+        lastMatchTimestamp = null;
         showAuthScreen('login');
       });
     });
@@ -375,26 +390,70 @@ document.addEventListener('DOMContentLoaded', () => {
  * @param {string} tabId - 'upload' | 'profiles' | 'autofill'
  */
 function switchTab(tabId) {
+  const currentTabId = TAB_IDS.find((id) => _tabPanels[id]?.classList.contains('active'));
+  const isSameTab = currentTabId === tabId;
+
   TAB_IDS.forEach((id) => {
-    const btn      = _tabBtns[id];
-    const panel    = _tabPanels[id];
+    const btn = _tabBtns[id];
     const isActive = id === tabId;
 
-    if (!btn || !panel) {
+    if (!btn) {
       console.warn(`[Fillosophy] Missing DOM element for tab: "${id}"`);
       return;
     }
 
     btn.classList.toggle('active', isActive);
     btn.setAttribute('aria-selected', String(isActive));
-    panel.classList.toggle('active', isActive);
-
-    if (isActive) {
-      panel.removeAttribute('hidden');
-    } else {
-      panel.setAttribute('hidden', '');
-    }
   });
+
+  const incomingPanel = _tabPanels[tabId];
+  if (!incomingPanel) {
+    console.warn(`[Fillosophy] Missing panel element for tab: "${tabId}"`);
+    return;
+  }
+
+  if (!isSameTab) {
+    const outgoingTabId = currentTabId;
+    const outgoingPanel = outgoingTabId ? _tabPanels[outgoingTabId] : null;
+
+    if (outgoingPanel) {
+      const pendingHide = panelHideTimers.get(outgoingTabId);
+      if (pendingHide) {
+        clearTimeout(pendingHide);
+        panelHideTimers.delete(outgoingTabId);
+      }
+
+      outgoingPanel.classList.remove('active', 'is-entering');
+      outgoingPanel.classList.add('is-exiting');
+    }
+
+    const pendingIncomingHide = panelHideTimers.get(tabId);
+    if (pendingIncomingHide) {
+      clearTimeout(pendingIncomingHide);
+      panelHideTimers.delete(tabId);
+    }
+
+    incomingPanel.removeAttribute('hidden');
+    incomingPanel.classList.remove('is-exiting');
+    incomingPanel.classList.add('is-entering');
+
+    requestAnimationFrame(() => {
+      incomingPanel.classList.add('active');
+      incomingPanel.classList.remove('is-entering');
+    });
+
+    if (outgoingPanel && outgoingTabId) {
+      const hideTimer = setTimeout(() => {
+        if (!outgoingPanel.classList.contains('active')) {
+          outgoingPanel.classList.remove('is-exiting', 'is-entering');
+          outgoingPanel.setAttribute('hidden', '');
+        }
+        panelHideTimers.delete(outgoingTabId);
+      }, PANEL_SWITCH_DURATION_MS + PANEL_SWITCH_STAGGER_MS);
+
+      panelHideTimers.set(outgoingTabId, hideTimer);
+    }
+  }
 
   const appContainer = document.getElementById('app');
   if (appContainer) appContainer.scrollTop = 0;
@@ -402,8 +461,6 @@ function switchTab(tabId) {
   const label = tabId.charAt(0).toUpperCase() + tabId.slice(1);
   console.log(`[Fillosophy] Tab switched to: ${label}`);
 
-  // Persist tab state
-  chrome.storage.local.set({ last_tab: tabId });
 
   // Side-effect: refresh live data whenever the Autofill tab becomes active
   if (tabId === 'autofill') {
@@ -452,14 +509,18 @@ async function syncProfilesFromBackend() {
     if (dataList.status === 'success' && Array.isArray(dataList.profiles)) {
       const dbProfiles = dataList.profiles;
 
-      // Fetch each profile from backend and save locally
+      // Clear local profiles to enforce logged-in user data isolation
+      await clearAllProfiles();
+
+      // Fetch each profile for the logged-in user from backend and save locally
       for (const name of dbProfiles) {
         try {
           const resSingle = await fetch(`http://localhost:8000/profiles/${name}`, { headers });
           if (resSingle.ok) {
             const dataSingle = await resSingle.json();
-            if (dataSingle.status === 'success' && dataSingle.profile_data) {
-              await saveProfile(name, dataSingle.profile_data);
+            const profileData = dataSingle.profile || dataSingle.profile_data;
+            if (dataSingle.status === 'success' && profileData) {
+              await saveProfile(name, profileData);
             }
           }
         } catch (singleErr) {
@@ -467,17 +528,67 @@ async function syncProfilesFromBackend() {
         }
       }
 
-      // Clean up local profiles that are no longer in the DB
-      const localProfiles = await listProfiles();
-      for (const localName of localProfiles) {
-        if (!dbProfiles.includes(localName)) {
-          await deleteProfile(localName);
-        }
+      // Automatically activate first profile if active profile is unset or not owned by user
+      const activeName = await getActiveProfile();
+      if ((!activeName || !dbProfiles.includes(activeName)) && dbProfiles.length > 0) {
+        await setActiveProfile(dbProfiles[0]);
       }
-      console.log('[Fillosophy] Profiles sync from backend complete');
+
+      console.log('[Fillosophy] Profiles sync from backend complete for logged-in user');
     }
   } catch (err) {
     console.warn('[Fillosophy] Profiles sync from backend failed (server offline?):', err.message);
+  }
+}
+
+/**
+ * Ensures the Save Profile button label is always 'Save Profile'.
+ */
+function updateSaveProfileButton() {
+  const labelEl = document.getElementById('save-profile-btn-label');
+  if (labelEl) {
+    labelEl.textContent = 'Save Profile';
+  }
+}
+
+let deleteConfirmTimer = null;
+
+/**
+ * Resets the Delete Profile button back to its non-confirmation default state.
+ */
+function resetDeleteButtonState() {
+  if (deleteConfirmTimer) {
+    clearTimeout(deleteConfirmTimer);
+    deleteConfirmTimer = null;
+  }
+  const deleteBtn = document.getElementById('delete-profile-btn');
+  const deleteLabel = document.getElementById('delete-profile-btn-label');
+  if (deleteBtn) {
+    deleteBtn.classList.remove('btn-danger-confirm');
+  }
+  if (deleteLabel) {
+    deleteLabel.textContent = 'Delete';
+  }
+}
+
+/**
+ * Disables or enables the Delete Profile button based on total profile count.
+ */
+async function updateDeleteButtonState() {
+  const deleteBtn = document.getElementById('delete-profile-btn');
+  if (!deleteBtn) return;
+
+  try {
+    const profiles = await listProfiles();
+    if (profiles.length <= 1) {
+      deleteBtn.disabled = true;
+      deleteBtn.title = 'Cannot delete the last remaining profile.';
+    } else {
+      deleteBtn.disabled = false;
+      deleteBtn.title = 'Delete currently active profile';
+    }
+  } catch (err) {
+    console.warn('[Fillosophy] Failed to update delete button state:', err.message);
   }
 }
 
@@ -485,74 +596,68 @@ async function renderProfileChips() {
   const container = document.getElementById('profiles-profile-picker');
   if (!container) return;
 
+  // Reset delete button confirmation state and update disabled status
+  resetDeleteButtonState();
+  await updateDeleteButtonState();
+
   // Fetch saved profile names and the active one
   let profileNames = [];
-  let activeName   = null;
+  let activeName = null;
 
   try {
     profileNames = await listProfiles();
-    activeName   = await getActiveProfile();
+    activeName = await getActiveProfile();
   } catch (err) {
     console.warn('[Fillosophy] Failed to load profiles for chips:', err.message);
   }
 
-  // If no active profile is set yet, default to first available or null
-  if (profileNames.length > 0) {
-    if (!activeName || !profileNames.includes(activeName)) {
-      activeName = profileNames[0];
-      await setActiveProfile(activeName);
-    }
-  } else {
-    activeName = null;
-    await setActiveProfile('');
-  }
+  // Determine if the add (+) chip should be active
+  const isAddActive = (!activeName || activeName === '+' || activeName === '__add__' || !profileNames.includes(activeName));
 
   // Clear container
   container.innerHTML = '';
 
-  // Build a chip for each profile
+  // Build a chip for each profile (no options button inside)
   for (const name of profileNames) {
+    const isChipActive = (!isAddActive && name === activeName);
     const chip = document.createElement('button');
-    chip.className = 'profile-chip' + (name === activeName ? ' active' : '');
+    chip.className = 'profile-chip' + (isChipActive ? ' active' : '');
     chip.type = 'button';
 
     // Capitalise label for display
     const displayName = name.charAt(0).toUpperCase() + name.slice(1);
     chip.textContent = displayName;
 
-    // Show options button for all profile chips
-    const optionsBtn = document.createElement('button');
-    optionsBtn.className = 'chip-options-btn';
-    optionsBtn.type = 'button';
-    optionsBtn.textContent = '⋯';
-    optionsBtn.title = `Options for ${displayName}`;
-    optionsBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      handleChipOptions(name);
-    });
-    chip.appendChild(optionsBtn);
-
     chip.addEventListener('click', () => handleChipSelect(name));
     container.appendChild(chip);
   }
 
-  // Append the "+ Add" chip
+  // Append the "+" chip (text is strictly '+')
   const addChip = document.createElement('button');
-  addChip.className = 'profile-chip add-chip';
+  addChip.className = 'profile-chip add-chip' + (isAddActive ? ' active' : '');
   addChip.type = 'button';
-  addChip.textContent = '+ Add';
-  addChip.addEventListener('click', () => handleAddProfileChip(container));
+  addChip.textContent = '+';
+  addChip.title = 'Add new profile';
+  addChip.addEventListener('click', () => {
+    handleAddProfileChip(container, null);
+  });
   container.appendChild(addChip);
 
-  // Load the active profile's data into the preview
-  if (activeName) {
+  // If there is a draft extracted profile waiting to be named, trigger the naming flow automatically!
+  if (pendingExtractedProfileData) {
+    const draft = pendingExtractedProfileData;
+    handleAddProfileChip(container, draft);
+    return;
+  }
+
+  // Load active profile data into preview and update button label
+  if (!isAddActive && activeName && profileNames.includes(activeName)) {
     try {
       const profileData = await getProfile(activeName);
       if (profileData && Object.keys(profileData).length > 0) {
         currentProfile = profileData;
         displayProfile(profileData);
       } else if (currentProfile && Object.keys(currentProfile).length > 0) {
-        // Keep unsaved extracted profile data in memory & preview form
         displayProfile(currentProfile);
       } else {
         currentProfile = null;
@@ -562,13 +667,16 @@ async function renderProfileChips() {
       console.warn('[Fillosophy] Failed to load active profile data:', err.message);
       if (currentProfile) displayProfile(currentProfile);
     }
+    updateSaveProfileButton(true);
   } else {
+    // Add chip is active (new profile or freshly extracted resume)
     if (currentProfile && Object.keys(currentProfile).length > 0) {
       displayProfile(currentProfile);
     } else {
       currentProfile = null;
       displayProfile(null);
     }
+    updateSaveProfileButton(false);
   }
 }
 
@@ -580,12 +688,20 @@ async function renderProfileChips() {
 async function handleChipSelect(name) {
   const profilesTabStatus = document.getElementById('profiles-tab-status');
 
+  // Discard draft extraction if switching to an existing chip before naming
+  if (pendingExtractedProfileData) {
+    pendingExtractedProfileData = null;
+    if (profilesTabStatus) {
+      setStatus(profilesTabStatus, 'Profile discarded.', 'error');
+    }
+  }
+
   try {
     const profileData = await getProfile(name);
 
     if (!profileData) {
       setStatus(profilesTabStatus,
-        `⚠ No data found for "${name}". Upload a resume under this profile first.`, 'error');
+        `No profile data found for "${name}".`, 'error');
       console.warn(`[Fillosophy] No profile data found for: ${name}`);
       // Still set as active so extracts go to this slot
       await setActiveProfile(name);
@@ -600,15 +716,15 @@ async function handleChipSelect(name) {
     console.log(`[Fillosophy] Switched active profile to: ${name}`);
 
     // Invalidate cached field mapping — forces fresh match on next Autofill tab open
-    fieldMapping       = {};
-    lastMatchTimestamp  = null;
+    fieldMapping = {};
+    lastMatchTimestamp = null;
     console.log('[Fillosophy] Field mapping invalidated due to profile switch');
 
     setStatus(profilesTabStatus, '', '');
 
   } catch (err) {
     console.warn('[Fillosophy] Profile switch failed:', err.message);
-    setStatus(profilesTabStatus, `⚠ Failed to switch profile: ${err.message}`, 'error');
+    setStatus(profilesTabStatus, `Failed to switch profile: ${err.message}`, 'error');
   }
 
   // Re-render chips to update active state
@@ -616,116 +732,290 @@ async function handleChipSelect(name) {
 }
 
 /**
- * Handles the "+ Add" chip — replaces it with an inline text input.
- * On Enter or blur, creates the new profile slot.
+ * Handles the "+ Add" chip — replaces it in-place with an inline text input.
+ * On Enter or blur with non-empty text, validates and creates the new profile slot.
+ * On Escape or blur with empty text, cancels and reverts.
  *
  * @param {HTMLElement} container - The profile picker container.
  */
-function handleAddProfileChip(container) {
+function handleAddProfileChip(container, initialProfileData = null) {
   // Check if an input already exists
   if (container.querySelector('.profile-chip-input')) return;
 
-  // Remove the add-chip temporarily
+  // Find the add-chip element to replace in-place
   const addChip = container.querySelector('.add-chip');
-  if (addChip) addChip.remove();
+  if (!addChip) return;
 
-  // Create inline input
+  // Create inline input element
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'profile-chip-input';
   input.placeholder = 'Profile name…';
   input.maxLength = 30;
-  container.appendChild(input);
+  input.ariaLabel = 'New profile name';
+
+  // Replace addChip in-place (same position in flex row)
+  container.replaceChild(input, addChip);
   input.focus();
 
-  const commitName = async () => {
-    const name = input.value.trim().toLowerCase();
-    input.remove();
+  const draftData = initialProfileData || pendingExtractedProfileData;
 
-    if (name && name.length > 0) {
-      try {
-        // Save empty profile locally
-        await saveProfile(name, {});
-        // Sync empty profile to database
-        const token = await getAuthToken();
-        const headers = { 'Content-Type': 'application/json' };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
+  // If draft extracted data is available, populate the preview section immediately
+  if (draftData) {
+    displayProfile(draftData);
+    updateSaveProfileButton(false);
+  }
 
-        await fetch(IMPORT_URL, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            profile_name: name,
-            profile_data: {},
-          }),
-        });
-        await setActiveProfile(name);
-        console.log(`[Fillosophy] New profile slot created & synced: ${name}`);
-      } catch (err) {
-        console.warn('[Fillosophy] Failed to create profile:', err.message);
+  let isProcessing = false;
+
+  const showError = (message) => {
+    input.classList.remove('chip-input-error');
+    void input.offsetWidth; // Force animation restart
+    input.classList.add('chip-input-error');
+    input.focus();
+    const profilesTabStatus = document.getElementById('profiles-tab-status');
+    if (profilesTabStatus) {
+      setStatus(profilesTabStatus, message, 'error');
+    }
+  };
+
+  const cancelAdd = async () => {
+    if (isProcessing) return;
+    isProcessing = true;
+
+    const profilesTabStatus = document.getElementById('profiles-tab-status');
+
+    if (draftData || pendingExtractedProfileData) {
+      pendingExtractedProfileData = null;
+      if (profilesTabStatus) {
+        setStatus(profilesTabStatus, 'Profile discarded.', 'error');
+      }
+    } else {
+      if (profilesTabStatus && profilesTabStatus.textContent.includes('already exists')) {
+        setStatus(profilesTabStatus, '', '');
       }
     }
 
-    // Re-render
+    // Revert preview back to active profile (or clear if none)
+    const activeName = await getActiveProfile();
+    if (activeName && activeName !== '+' && activeName !== '__add__') {
+      const activeData = await getProfile(activeName);
+      currentProfile = activeData;
+      displayProfile(activeData);
+    } else {
+      currentProfile = null;
+      displayProfile(null);
+    }
+
+    renderProfileChips();
+  };
+
+  const submitAdd = async () => {
+    if (isProcessing) return;
+    const trimmedVal = input.value.trim();
+
+    if (!trimmedVal) {
+      cancelAdd();
+      return;
+    }
+
+    // Validate case-insensitive exact duplicate names
+    let existingProfiles = [];
+    try {
+      existingProfiles = await listProfiles();
+    } catch (err) {
+      console.warn('[Fillosophy] Failed to list profiles for validation:', err.message);
+    }
+
+    const isDuplicate = existingProfiles.some(
+      (p) => p.toLowerCase() === trimmedVal.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      showError(`Profile "${trimmedVal}" already exists.`);
+      return;
+    }
+
+    // Valid input!
+    isProcessing = true;
+    const newProfileName = trimmedVal.toLowerCase();
+
+    const profileDataToSave = draftData
+      ? draftData
+      : {
+          full_name: null,
+          preferred_name: null,
+          email: null,
+          phone: null,
+          address: null,
+          date_of_birth: null,
+          gender: null,
+          degree: null,
+          institution: null,
+          cgpa: null,
+          graduation_year: null,
+          links: [],
+          skills: [],
+          experience: [],
+          projects: [],
+          certifications: []
+        };
+
+    // Clear draft reference on successful commit
+    pendingExtractedProfileData = null;
+
+    try {
+      await saveProfile(newProfileName, profileDataToSave);
+      await setActiveProfile(newProfileName);
+      currentProfile = profileDataToSave;
+      displayProfile(profileDataToSave);
+
+      // Sync to backend DB if reachable
+      const token = await getAuthToken();
+      const headers = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      await fetch(IMPORT_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          profile_name: newProfileName,
+          profile_data: profileDataToSave,
+        }),
+      });
+
+      console.log(`[Fillosophy] New profile created & synced: ${newProfileName}`);
+      const profilesTabStatus = document.getElementById('profiles-tab-status');
+      if (profilesTabStatus) {
+        setStatus(profilesTabStatus, `Profile "${trimmedVal}" saved.`, 'success');
+      }
+    } catch (err) {
+      console.warn('[Fillosophy] Failed to create new profile:', err.message);
+    }
+
     renderProfileChips();
   };
 
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      commitName();
+      submitAdd();
     } else if (e.key === 'Escape') {
-      input.remove();
-      renderProfileChips();
+      e.preventDefault();
+      cancelAdd();
     }
   });
 
-  input.addEventListener('blur', commitName);
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      if (!isProcessing) {
+        if (input.value.trim()) {
+          submitAdd();
+        } else {
+          cancelAdd();
+        }
+      }
+    }, 150);
+  });
 }
 
 /**
- * Handles the ⋯ options button on custom (non-default) profile chips.
- * Shows a confirm dialog to delete the profile.
- *
- * @param {string} name - Profile name to manage.
+ * Handles the dedicated Delete Profile button in the Profiles tab.
+ * Implements lightweight 2-step inline confirmation.
  */
-async function handleChipOptions(name) {
-  const displayName = name.charAt(0).toUpperCase() + name.slice(1);
-  const confirmed = confirm(`Delete profile "${displayName}"?`);
+async function handleDeleteProfile() {
+  const deleteBtn = document.getElementById('delete-profile-btn');
+  const deleteLabel = document.getElementById('delete-profile-btn-label');
+  const profilesTabStatus = document.getElementById('profiles-tab-status');
+  if (!deleteBtn || deleteBtn.disabled) return;
 
-  if (!confirmed) return;
+  const activeName = await getActiveProfile();
+  if (!activeName || activeName === '+' || activeName === '__add__') {
+    if (profilesTabStatus) {
+      setStatus(profilesTabStatus, 'Select a profile to delete.', 'error');
+    }
+    return;
+  }
+
+  // Ensure there is more than 1 profile remaining
+  const profiles = await listProfiles();
+  if (profiles.length <= 1) {
+    if (profilesTabStatus) {
+      setStatus(profilesTabStatus, 'Cannot delete the last remaining profile.', 'error');
+    }
+    updateDeleteButtonState();
+    return;
+  }
+
+  // Check if button is already in confirmation state
+  const isConfirming = deleteBtn.classList.contains('btn-danger-confirm');
+
+  if (!isConfirming) {
+    // Step 1: Enter confirm state
+    deleteBtn.classList.add('btn-danger-confirm');
+    if (deleteLabel) deleteLabel.textContent = 'Confirm?';
+    if (profilesTabStatus) {
+      setStatus(profilesTabStatus, 'Click Delete again to confirm.', 'amber');
+    }
+
+    // Auto-revert after 3.5 seconds
+    deleteConfirmTimer = setTimeout(() => {
+      resetDeleteButtonState();
+      if (profilesTabStatus && profilesTabStatus.textContent.includes('confirm')) {
+        setStatus(profilesTabStatus, '', '');
+      }
+    }, 3500);
+
+    return;
+  }
+
+  // Step 2: Confirmed! Delete active profile
+  resetDeleteButtonState();
 
   try {
-    await deleteProfile(name);
-    // Sync deletion to backend
-    const token = await getAuthToken();
-    const headers = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+    await deleteProfile(activeName);
+
+    // Sync deletion to backend DB
+    try {
+      const token = await getAuthToken();
+      const headers = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      await fetch(`http://localhost:8000/profiles/${activeName}`, {
+        method: 'DELETE',
+        headers,
+      });
+    } catch (backendErr) {
+      console.warn('[Fillosophy] Backend delete sync failed:', backendErr.message);
     }
 
-    await fetch(`http://localhost:8000/profiles/${name}`, {
-      method: 'DELETE',
-      headers
-    });
+    // Find next profile to select
+    const remaining = await listProfiles();
 
-    // If the deleted profile was active, switch to another or clear
-    const activeName = await getActiveProfile();
-    if (activeName === name) {
-      const remaining = await listProfiles();
-      if (remaining.length > 0) {
-        await setActiveProfile(remaining[0]);
-      } else {
-        await setActiveProfile('');
-      }
+    if (remaining.length > 0) {
+      const nextActive = remaining[0];
+      await setActiveProfile(nextActive);
+      const nextData = await getProfile(nextActive);
+      currentProfile = nextData;
+      displayProfile(nextData);
+    } else {
+      await setActiveProfile('');
+      currentProfile = null;
+      displayProfile(null);
     }
 
-    console.log(`[Fillosophy] Profile deleted: ${name}`);
+    if (profilesTabStatus) {
+      setStatus(profilesTabStatus, 'Profile deleted.', 'success');
+    }
   } catch (err) {
-    console.warn('[Fillosophy] Failed to delete profile:', err.message);
+    console.error('[Fillosophy] Failed to delete profile:', err.message);
+    if (profilesTabStatus) {
+      setStatus(profilesTabStatus, `Delete failed: ${err.message}`, 'error');
+    }
   }
+
+  // Invalidate field mapping cache
+  fieldMapping = {};
+  lastMatchTimestamp = null;
 
   renderProfileChips();
 }
@@ -753,7 +1043,7 @@ function setActiveProfileChip(profileName) {
  */
 function initDropzone(els) {
   const { dropzone, fileInput, dropzoneTitle, dropzoneSub,
-          extractBtn, uploadStatus } = els;
+    extractBtn, uploadStatus } = els;
 
   if (!dropzone || !fileInput) {
     console.warn('[Fillosophy Upload] Dropzone or file input not found.');
@@ -788,16 +1078,20 @@ function initDropzone(els) {
     dropzone.classList.remove('dragover');
     const file = e.dataTransfer?.files?.[0];
     console.log(`[Fillosophy Upload] File dropped: ${file?.name ?? 'none'}`);
-    applyFileSelection(file, { dropzone, dropzoneTitle, dropzoneSub,
-                               extractBtn, uploadStatus });
+    applyFileSelection(file, {
+      dropzone, dropzoneTitle, dropzoneSub,
+      extractBtn, uploadStatus
+    });
   });
 
   // File picker selection
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files?.[0];
     console.log(`[Fillosophy Upload] File selected via picker: ${file?.name ?? 'none'}`);
-    applyFileSelection(file, { dropzone, dropzoneTitle, dropzoneSub,
-                               extractBtn, uploadStatus });
+    applyFileSelection(file, {
+      dropzone, dropzoneTitle, dropzoneSub,
+      extractBtn, uploadStatus
+    });
     // Reset so the same file can be re-selected
     fileInput.value = '';
   });
@@ -824,7 +1118,7 @@ function applyFileSelection(file, els) {
   // PDF-only validation
   if (file.type !== ACCEPTED_MIME && !file.name.toLowerCase().endsWith('.pdf')) {
     console.warn(`[Fillosophy Upload] Rejected — not a PDF: ${file.name} (${file.type})`);
-    setStatus(uploadStatus, '✗ Only PDF files are supported.', 'error');
+    setStatus(uploadStatus, 'Only PDF files are supported.', 'error');
     return;
   }
 
@@ -833,8 +1127,8 @@ function applyFileSelection(file, els) {
   console.log(`[Fillosophy Upload] File accepted: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
 
   dropzone.classList.add('has-file');
-  dropzoneTitle.textContent = `✓ ${file.name}`;
-  dropzoneSub.textContent   = `${(file.size / 1024).toFixed(1)} KB · Click to change`;
+  dropzoneTitle.textContent = `${file.name}`;
+  dropzoneSub.textContent = `${(file.size / 1024).toFixed(1)} KB · Click to change`;
 
   extractBtn.disabled = false;
 }
@@ -909,8 +1203,9 @@ async function handleExtract(els) {
     const data = await response.json();
     console.log('[Fillosophy Upload] Extract success:', data);
 
-    currentProfile = data.profile;
-    currentProfileName = profileName;
+    // Hold extracted profile in draft memory — user names the profile on the Profiles tab before persisting
+    pendingExtractedProfileData = data.profile;
+    currentProfileName = null;
     lastUploadTimestamp = Date.now();
 
     // CRITICAL: Clear the field matching cache
@@ -919,29 +1214,26 @@ async function handleExtract(els) {
     lastMatchTimestamp = null;
 
     console.log(`[Fillosophy] Cache invalidated at ${lastUploadTimestamp}`);
-    console.log(`[Fillosophy] New profile loaded: ${currentProfileName}`);
     logProfileState();
-
-    displayProfile(data.profile);
 
     // ── Update status ────────────────────────────────────────────────────────
     setStatus(
       uploadStatus,
-      `✓ Profile extracted! ${data.profile.full_name} — ${data.char_count} chars extracted.`,
+      'Resume parsed. Enter profile name.',
       'success'
     );
 
-    // Keep button disabled — user must select a new file to run again
-    extractBtn.disabled = true;
+    // Re-enable extract button so user can re-trigger if needed
+    extractBtn.disabled = false;
 
-    // Switch to Profiles tab after extraction so the user sees the filled fields
-    setTimeout(() => switchTab('profiles'), 800);
+    // Switch to Profiles tab after extraction — smooth transition triggers naming flow automatically
+    setTimeout(() => switchTab('profiles'), 350);
 
   } catch (err) {
     const isNetworkError = err instanceof TypeError;
     const message = isNetworkError
-      ? '⚠️ The backend server is currently offline. Please start it to extract profiles.'
-      : `✗ Error: ${err.message}`;
+      ? 'Server offline.'
+      : `Extraction failed: ${err.message}`;
 
     console.error('[Fillosophy Upload] Extract failed:', err.message);
     setStatus(uploadStatus, message, 'error');
@@ -970,7 +1262,7 @@ async function handleExportJson() {
   // ── Guard: no profile loaded ──────────────────────────────────────────────
   if (!currentProfile) {
     if (profilesStatus) {
-      setStatus(profilesStatus, '⚠ No active profile to export.', 'error');
+      setStatus(profilesStatus, 'No active profile to export.', 'error');
     }
     console.warn('[Fillosophy] Export aborted — no active profile.');
     return;
@@ -998,11 +1290,11 @@ async function handleExportJson() {
   };
 
   const jsonString = JSON.stringify(exportPayload, null, 2);
-  const filename   = `fillosophy_${activeProfileName.toLowerCase()}_${Date.now()}.json`;
+  const filename = `fillosophy_${activeProfileName.toLowerCase()}_${Date.now()}.json`;
 
   // ── Trigger download ──────────────────────────────────────────────────────
   const blob = new Blob([jsonString], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
 
   let downloadSucceeded = false;
 
@@ -1029,8 +1321,8 @@ async function handleExportJson() {
 
   // Fallback: temporary anchor element
   if (!downloadSucceeded) {
-    const a  = document.createElement('a');
-    a.href     = url;
+    const a = document.createElement('a');
+    a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
@@ -1042,7 +1334,7 @@ async function handleExportJson() {
 
   // ── Status feedback ───────────────────────────────────────────────────────
   if (profilesStatus) {
-    setStatus(profilesStatus, `✓ Profile exported as ${filename}`, 'success');
+    setStatus(profilesStatus, `Profile exported as ${filename}.`, 'success');
   }
   console.log(`[Fillosophy] Profile exported: ${activeProfileName}`);
 }
@@ -1061,7 +1353,18 @@ async function handleSaveProfile() {
   let activeProfileName = 'personal';
   try {
     const active = await getActiveProfile();
-    if (active) activeProfileName = active;
+    const existingProfiles = await listProfiles();
+    if (active && active !== '+' && active !== '__add__' && existingProfiles.includes(active)) {
+      activeProfileName = active;
+    } else {
+      const enteredName = prompt('Enter a name for this profile (e.g. personal, academic):', 'personal');
+      if (!enteredName || !enteredName.trim()) {
+        if (profilesStatus) setStatus(profilesStatus, 'Save cancelled: Profile name required.', 'error');
+        return;
+      }
+      activeProfileName = enteredName.trim().toLowerCase();
+      await setActiveProfile(activeProfileName);
+    }
   } catch (err) {
     console.warn('[Fillosophy] Failed to get active profile name:', err.message);
   }
@@ -1155,7 +1458,7 @@ async function handleSaveProfile() {
     currentProfile = profileData;
     console.log(`[Fillosophy] Profile saved locally: ${activeProfileName}`);
   } catch (storageErr) {
-    if (profilesStatus) setStatus(profilesStatus, `✗ Save failed: ${storageErr.message}`, 'error');
+    if (profilesStatus) setStatus(profilesStatus, `Save failed: ${storageErr.message}`, 'error');
     return;
   }
 
@@ -1181,13 +1484,15 @@ async function handleSaveProfile() {
       }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    if (profilesStatus) setStatus(profilesStatus, '✓ Profile saved and synced successfully!', 'success');
+    if (profilesStatus) setStatus(profilesStatus, 'Profile saved.', 'success');
     console.log(`[Fillosophy] Profile synced: ${activeProfileName}`);
   } catch (syncErr) {
     console.warn('[Fillosophy] Backend sync failed:', syncErr.message);
     if (profilesStatus) {
-      setStatus(profilesStatus, '✓ Profile saved locally, but backend sync failed (server offline).', 'success');
+      setStatus(profilesStatus, 'Saved locally. Server offline.', 'success');
     }
+  } finally {
+    renderProfileChips();
   }
 }
 
@@ -1204,10 +1509,10 @@ function displayProfile(profile) {
   if (!profile || Object.keys(profile).length === 0) {
     const inputs = document.querySelectorAll('.preview-input');
     inputs.forEach(input => input.value = '');
-    
+
     const containerExp = document.getElementById('profile-experience-list');
     if (containerExp) containerExp.innerHTML = '';
-    
+
     const containerProj = document.getElementById('profile-projects-list');
     if (containerProj) containerProj.innerHTML = '';
     return;
@@ -1228,17 +1533,17 @@ function displayProfile(profile) {
     ? profile.phone.full
     : profile.phone;
 
-  set('profile-field-name',        profile.full_name ?? '');
-  set('profile-field-pref-name',   profile.preferred_name ?? '');
-  set('profile-field-email',       profile.email ?? '');
-  set('profile-field-phone',       phoneDisplay ?? '');
-  set('profile-field-address',     profile.address ?? '');
-  set('profile-field-dob',         profile.date_of_birth ?? '');
-  set('profile-field-gender',      profile.gender ?? '');
-  set('profile-field-degree',      profile.degree ?? '');
+  set('profile-field-name', profile.full_name ?? '');
+  set('profile-field-pref-name', profile.preferred_name ?? '');
+  set('profile-field-email', profile.email ?? '');
+  set('profile-field-phone', phoneDisplay ?? '');
+  set('profile-field-address', profile.address ?? '');
+  set('profile-field-dob', profile.date_of_birth ?? '');
+  set('profile-field-gender', profile.gender ?? '');
+  set('profile-field-degree', profile.degree ?? '');
   set('profile-field-institution', profile.institution ?? '');
-  set('profile-field-cgpa',        profile.cgpa ?? '');
-  set('profile-field-grad-year',   profile.graduation_year ?? '');
+  set('profile-field-cgpa', profile.cgpa ?? '');
+  set('profile-field-grad-year', profile.graduation_year ?? '');
 
   // Links list
   set('profile-field-links',
@@ -1416,24 +1721,24 @@ function createProjectCardElement(proj, index) {
  */
 async function loadAutofillTab() {
   // Grab all the elements we'll update
-  const urlEl            = document.getElementById('current-page-url');
-  const fieldsFoundEl    = document.getElementById('stat-fields-found');
+  const urlEl = document.getElementById('current-page-url');
+  const fieldsFoundEl = document.getElementById('stat-fields-found');
   const highConfidenceEl = document.getElementById('stat-high-confidence');
-  const needsReviewEl    = document.getElementById('stat-needs-review');
-  const activeProfileEl  = document.getElementById('active-profile-name');
-  const autofillBtn      = document.getElementById('autofill-btn');
-  const tabStatus        = document.getElementById('autofill-tab-status');
+  const needsReviewEl = document.getElementById('stat-needs-review');
+  const activeProfileEl = document.getElementById('active-profile-name');
+  const autofillBtn = document.getElementById('autofill-btn');
+  const tabStatus = document.getElementById('autofill-tab-status');
 
   // ── Step 1: loading state ──────────────────────────────────────────────────
-  if (urlEl)         urlEl.textContent         = 'Scanning page…';
+  if (urlEl) urlEl.textContent = 'Scanning page…';
   if (fieldsFoundEl) fieldsFoundEl.textContent = '—';
   if (highConfidenceEl) highConfidenceEl.textContent = '—';
-  if (needsReviewEl)    needsReviewEl.textContent    = '—';
-  if (tabStatus)     { tabStatus.textContent = ''; tabStatus.className = 'upload-status'; }
-  if (autofillBtn)   autofillBtn.disabled      = true; // Disable until everything is ready
+  if (needsReviewEl) needsReviewEl.textContent = '—';
+  if (tabStatus) { tabStatus.textContent = ''; tabStatus.className = 'upload-status'; }
+  if (autofillBtn) autofillBtn.disabled = true; // Disable until everything is ready
 
   const previewSection = document.getElementById('autofill-preview-section');
-  if (previewSection) previewSection.style.display = 'none';
+  if (previewSection) setPreviewSectionVisible(previewSection, false);
 
   // ── Step 1a: PING — verify content script is reachable before proceeding ───
   try {
@@ -1443,10 +1748,10 @@ async function loadAutofillTab() {
     }
   } catch (pingErr) {
     console.warn('[Fillosophy] PING_CONTENT failed:', pingErr.message);
-    if (urlEl)     urlEl.textContent     = 'Unavailable';
+    if (urlEl) urlEl.textContent = 'Unavailable';
     if (tabStatus) {
-      tabStatus.textContent = '⚠ Fillosophy cannot access this page. Navigate to a website with a form and try again.';
-      tabStatus.className   = 'upload-status error';
+      tabStatus.textContent = 'Fillosophy cannot access this page.';
+      tabStatus.className = 'upload-status error';
     }
     if (autofillBtn) autofillBtn.disabled = true;
     return; // abort — no point calling GET_PAGE_INFO or DETECT_FIELDS
@@ -1463,10 +1768,10 @@ async function loadAutofillTab() {
     console.log(`[Fillosophy] Page info loaded — ${pageInfo.fieldCount} field(s) on ${currentPageUrl}`);
   } catch (pageErr) {
     console.warn('[Fillosophy] GET_PAGE_INFO failed:', pageErr.message);
-    if (urlEl)       urlEl.textContent       = 'Unavailable';
+    if (urlEl) urlEl.textContent = 'Unavailable';
     if (tabStatus) {
-      tabStatus.textContent = '⚠ Fillosophy cannot read this page. Try refreshing or navigate to a page with a form.';
-      tabStatus.className   = 'upload-status error';
+      tabStatus.textContent = 'Fillosophy cannot read this page.';
+      tabStatus.className = 'upload-status error';
     }
     if (autofillBtn) autofillBtn.disabled = true;
     return;
@@ -1484,8 +1789,8 @@ async function loadAutofillTab() {
     } else {
       if (activeProfileEl) activeProfileEl.textContent = 'None';
       if (tabStatus) {
-        tabStatus.textContent = '⚠ No profile loaded. Upload a resume first.';
-        tabStatus.className   = 'upload-status error';
+        tabStatus.textContent = 'No profile loaded.';
+        tabStatus.className = 'upload-status error';
       }
       if (autofillBtn) autofillBtn.disabled = true;
       console.warn('[Fillosophy] No active profile found in storage.');
@@ -1495,8 +1800,8 @@ async function loadAutofillTab() {
     console.warn('[Fillosophy] GET_ACTIVE_PROFILE failed:', profileErr.message);
     if (activeProfileEl) activeProfileEl.textContent = 'Unknown';
     if (tabStatus) {
-      tabStatus.textContent = '⚠ Could not load profile data.';
-      tabStatus.className   = 'upload-status error';
+      tabStatus.textContent = 'Could not load profile data.';
+      tabStatus.className = 'upload-status error';
     }
     if (autofillBtn) autofillBtn.disabled = true;
     return;
@@ -1537,8 +1842,8 @@ async function loadAutofillTab() {
     if (fieldLabels.length === 0) {
       if (fieldsFoundEl) fieldsFoundEl.textContent = '0';
       if (tabStatus) {
-        tabStatus.textContent = '⚠ No form fields detected on this page.';
-        tabStatus.className   = 'upload-status error';
+        tabStatus.textContent = 'No form fields detected.';
+        tabStatus.className = 'upload-status error';
       }
       if (autofillBtn) autofillBtn.disabled = true;
       console.log('[Fillosophy] No fields detected — autofill disabled');
@@ -1547,8 +1852,8 @@ async function loadAutofillTab() {
   } catch (labelErr) {
     console.warn('[Fillosophy] collectFieldLabels failed:', labelErr.message);
     if (tabStatus) {
-      tabStatus.textContent = '⚠ Failed to detect form fields on this page.';
-      tabStatus.className   = 'upload-status error';
+      tabStatus.textContent = 'Failed to detect form fields.';
+      tabStatus.className = 'upload-status error';
     }
     if (autofillBtn) autofillBtn.disabled = true;
     return;
@@ -1579,13 +1884,13 @@ async function previewMatch() {
   if (fieldLabels.length === 0 || !currentProfile) return;
 
   const highConfidenceEl = document.getElementById('stat-high-confidence');
-  const needsReviewEl    = document.getElementById('stat-needs-review');
-  const tabStatus        = document.getElementById('autofill-tab-status');
-  const autofillBtn      = document.getElementById('autofill-btn');
-  const fieldsFoundEl    = document.getElementById('stat-fields-found');
+  const needsReviewEl = document.getElementById('stat-needs-review');
+  const tabStatus = document.getElementById('autofill-tab-status');
+  const autofillBtn = document.getElementById('autofill-btn');
+  const fieldsFoundEl = document.getElementById('stat-fields-found');
 
   if (highConfidenceEl) highConfidenceEl.textContent = '...';
-  if (needsReviewEl)    needsReviewEl.textContent    = '...';
+  if (needsReviewEl) needsReviewEl.textContent = '...';
 
   try {
     // ── Step A: Try template matching first ──────────────────────────────────
@@ -1593,18 +1898,18 @@ async function previewMatch() {
 
     if (templateResult && templateResult.unmatched.length === 0) {
       // ── Fully matched via template — skip AI entirely ─────────────────────
-      fieldMapping       = templateResult.matched;
+      fieldMapping = templateResult.matched;
       lastMatchTimestamp = Date.now();
 
-      const totalFields    = Object.keys(fieldMapping).length;
+      const totalFields = Object.keys(fieldMapping).length;
 
-      if (fieldsFoundEl)    fieldsFoundEl.textContent    = totalFields;
+      if (fieldsFoundEl) fieldsFoundEl.textContent = totalFields;
       if (highConfidenceEl) highConfidenceEl.textContent = totalFields;
-      if (needsReviewEl)    needsReviewEl.textContent    = 0;
+      if (needsReviewEl) needsReviewEl.textContent = 0;
 
       if (tabStatus) {
-        tabStatus.textContent = `✓ All ${totalFields} field(s) matched via template (no AI needed).`;
-        tabStatus.className   = 'upload-status success';
+        tabStatus.textContent = `All ${totalFields} fields matched.`;
+        tabStatus.className = 'upload-status success';
       }
       if (autofillBtn) autofillBtn.disabled = false;
 
@@ -1615,8 +1920,8 @@ async function previewMatch() {
     }
 
     // ── Step B: Partial or no template match — call AI /match ────────────────
-    const templateMatched    = templateResult?.matched  ?? {};
-    const fieldsForAI        = templateResult?.unmatched ?? fieldLabels;
+    const templateMatched = templateResult?.matched ?? {};
+    const fieldsForAI = templateResult?.unmatched ?? fieldLabels;
     const templateMatchCount = Object.keys(templateMatched).length;
 
     if (templateMatchCount > 0) {
@@ -1624,40 +1929,40 @@ async function previewMatch() {
     }
 
     const response = await fetch('http://localhost:8000/match/', {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        fields:  fieldsForAI,
+      body: JSON.stringify({
+        fields: fieldsForAI,
         profile: currentProfile,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`Match API returned HTTP ${response.status}`);
+      throw new Error(`HTTP ${response.status}`);
     }
 
-    const data     = await response.json();
+    const data = await response.json();
     const aiMapping = data.mapping || {};
 
     // ── Merge: template matches (high confidence) + AI matches ────────────
-    fieldMapping       = { ...templateMatched, ...aiMapping };
+    fieldMapping = { ...templateMatched, ...aiMapping };
     fieldMatchingCacheTimestamp = Date.now();
-    lastMatchTimestamp  = fieldMatchingCacheTimestamp;
+    lastMatchTimestamp = fieldMatchingCacheTimestamp;
 
     // Recompute stats from the merged mapping
-    const totalFields    = Object.keys(fieldMapping).length;
+    const totalFields = Object.keys(fieldMapping).length;
     const highConfidence = Object.values(fieldMapping)
       .filter((m) => (m.confidence ?? 0) >= 80).length;
-    const needsReview    = totalFields - highConfidence;
+    const needsReview = totalFields - highConfidence;
 
-    if (fieldsFoundEl)    fieldsFoundEl.textContent    = totalFields;
+    if (fieldsFoundEl) fieldsFoundEl.textContent = totalFields;
     if (highConfidenceEl) highConfidenceEl.textContent = highConfidence;
-    if (needsReviewEl)    needsReviewEl.textContent    = needsReview;
+    if (needsReviewEl) needsReviewEl.textContent = needsReview;
 
     if (needsReview > 0) {
       if (tabStatus) {
         tabStatus.textContent = `⚠ ${needsReview} field(s) will be flagged for review.`;
-        tabStatus.className   = 'upload-status amber';
+        tabStatus.className = 'upload-status amber';
       }
     } else {
       if (tabStatus) {
@@ -1665,7 +1970,7 @@ async function previewMatch() {
           ? ` (${templateMatchCount} via template)`
           : '';
         tabStatus.textContent = `✓ All fields matched with high confidence${extra}.`;
-        tabStatus.className   = 'upload-status success';
+        tabStatus.className = 'upload-status success';
       }
     }
 
@@ -1678,7 +1983,7 @@ async function previewMatch() {
     console.error('[Fillosophy] Match preview failed:', err);
     if (tabStatus) {
       tabStatus.textContent = '⚠️ The backend server is offline. Please start it to map fields.';
-      tabStatus.className   = 'upload-status error';
+      tabStatus.className = 'upload-status error';
     }
     if (autofillBtn) autofillBtn.disabled = true;
   }
@@ -1737,7 +2042,7 @@ function wireAutofillButton() {
     }
 
     // Loading state
-    freshBtn.disabled    = true;
+    freshBtn.disabled = true;
     freshBtn.textContent = 'Filling form…';
     // Always re-query — the clone swap may have detached the old reference
     const getStatus = () => document.getElementById('autofill-tab-status');
@@ -1747,11 +2052,11 @@ function wireAutofillButton() {
     try {
       const res = await sendMessage('APPLY_AUTOFILL', {
         mapping: fieldMapping,
-        fields:  detectedFields
+        fields: detectedFields
       });
 
       const summary = res?.summary ?? {};
-      const filled  = summary.filled  ?? 0;
+      const filled = summary.filled ?? 0;
       const flagged = summary.flagged ?? 0;
 
       // Update stats row with post-fill numbers
@@ -1765,13 +2070,13 @@ function wireAutofillButton() {
       if (st2) {
         if (filled === 0 && flagged === 0) {
           st2.textContent = `⚠ No fields could be matched to your profile. Try re-scanning or check your profile.`;
-          st2.className   = 'upload-status amber';
+          st2.className = 'upload-status amber';
         } else if (flagged > 0) {
           st2.textContent = `✓ Filled ${filled} field(s). ${flagged} flagged for your review on the page.`;
-          st2.className   = 'upload-status amber';
+          st2.className = 'upload-status amber';
         } else {
           st2.textContent = `✓ All ${filled} field(s) filled successfully!`;
-          st2.className   = 'upload-status success';
+          st2.className = 'upload-status success';
         }
       }
 
@@ -1782,10 +2087,10 @@ function wireAutofillButton() {
       const st3 = getStatus();
       if (st3) {
         st3.textContent = `✗ Autofill failed. ${err.message}`;
-        st3.className   = 'upload-status error';
+        st3.className = 'upload-status error';
       }
     } finally {
-      freshBtn.disabled    = false;
+      freshBtn.disabled = false;
       freshBtn.textContent = 'Autofill This Form';
     }
   });
@@ -1817,11 +2122,11 @@ async function collectFieldLabels() {
 
   // Build the label list using the specified priority order
   const labels = detectedFields.map((d) =>
-    d.label       ??
+    d.label ??
     d.placeholder ??
-    d.ariaLabel   ??
-    d.name        ??
-    d.id          ??
+    d.ariaLabel ??
+    d.name ??
+    d.id ??
     `field_${d.index}`
   );
 
@@ -1843,7 +2148,7 @@ async function collectFieldLabels() {
 function setStatus(el, message, type) {
   if (!el) return;
   el.textContent = message;
-  el.className   = `upload-status${type ? ` ${type}` : ''}`;
+  el.className = `upload-status${type ? ` ${type}` : ''}`;
 }
 
 /**
@@ -1856,7 +2161,7 @@ function setStatus(el, message, type) {
  * @param {boolean}           isLoading
  */
 function setLoadingState(btn, labelEl, isLoading) {
-  if (labelEl) labelEl.textContent  = isLoading ? 'Extracting…' : 'Extract';
+  if (labelEl) labelEl.textContent = isLoading ? 'Extracting…' : 'Extract';
   // Only force-disable on entry; re-enable decisions are made by the caller
   if (isLoading) btn.disabled = true;
 }
@@ -1874,11 +2179,11 @@ function renderMatchPreviewInPopup() {
 
   const entries = Object.entries(fieldMapping);
   if (entries.length === 0) {
-    previewSection.style.display = 'none';
+    setPreviewSectionVisible(previewSection, false);
     return;
   }
 
-  previewSection.style.display = 'block';
+  setPreviewSectionVisible(previewSection, true);
 
   entries.forEach(([label, data]) => {
     // Create card container
@@ -1913,6 +2218,36 @@ function renderMatchPreviewInPopup() {
     card.appendChild(valDiv);
     previewList.appendChild(card);
   });
+}
+
+/**
+ * Toggles the autofill preview section with the same motion language as panel switches.
+ * @param {HTMLElement} sectionEl
+ * @param {boolean} isVisible
+ */
+function setPreviewSectionVisible(sectionEl, isVisible) {
+  if (!sectionEl) return;
+
+  if (previewSectionHideTimer) {
+    clearTimeout(previewSectionHideTimer);
+    previewSectionHideTimer = null;
+  }
+
+  if (isVisible) {
+    sectionEl.removeAttribute('hidden');
+    requestAnimationFrame(() => {
+      sectionEl.classList.add('is-visible');
+    });
+    return;
+  }
+
+  sectionEl.classList.remove('is-visible');
+  previewSectionHideTimer = setTimeout(() => {
+    if (!sectionEl.classList.contains('is-visible')) {
+      sectionEl.setAttribute('hidden', '');
+    }
+    previewSectionHideTimer = null;
+  }, PANEL_SWITCH_DURATION_MS);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1986,7 +2321,7 @@ function showAuthScreen(screen) {
   const logoutBtn = document.getElementById('header-logout-btn');
 
   if (appContainer) appContainer.classList.add('auth-mode');
-  if (logoutBtn) logoutBtn.style.display = 'none';
+  if (logoutBtn) logoutBtn.setAttribute('hidden', '');
 
   // Clear inputs and status
   const loginStatus = document.getElementById('login-status');
@@ -2015,17 +2350,14 @@ function enterApp() {
   if (appContainer) appContainer.classList.remove('auth-mode');
   if (loginScreen) loginScreen.setAttribute('hidden', '');
   if (signupScreen) signupScreen.setAttribute('hidden', '');
-  if (logoutBtn) logoutBtn.style.display = 'flex';
+  if (logoutBtn) logoutBtn.removeAttribute('hidden');
 
-  // Load the initial tab selection
-  chrome.storage.local.get(['last_tab', 'fillosophy_active'], (result) => {
-    const activeProfileName = result?.fillosophy_active?.activeProfile;
-    let initialTab = result?.last_tab || (activeProfileName ? 'autofill' : 'upload');
-    
-    // Sync database state before switching tab to ensure UI profile lists are complete
-    syncProfilesFromBackend().then(() => {
-      switchTab(initialTab);
-    });
+  // Uploads tab is strictly the default tab whenever the extension is opened or logged in
+  const initialTab = DEFAULT_TAB;
+
+  // Sync database state before switching tab to ensure UI profile lists are complete
+  syncProfilesFromBackend().then(() => {
+    switchTab(initialTab);
   });
 }
 
