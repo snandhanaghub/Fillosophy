@@ -191,12 +191,10 @@ document.addEventListener('DOMContentLoaded', () => {
     exportJsonBtn.addEventListener('click', handleExportJson);
   }
 
-  // ── Wire import button + hidden file input ─────────────────────
-  const importBtn       = document.getElementById('import-btn');
-  const importFileInput = document.getElementById('import-file-input');
-  if (importBtn && importFileInput) {
-    importBtn.addEventListener('click', () => importFileInput.click());
-    importFileInput.addEventListener('change', handleImportJson);
+  // ── Wire Save Profile button ───────────────────────────────────
+  const saveProfileBtn = document.getElementById('save-profile-btn');
+  if (saveProfileBtn) {
+    saveProfileBtn.addEventListener('click', handleSaveProfile);
   }
 
   // ── Wire Switch profile link (Autofill tab → Profiles tab) ─────
@@ -941,114 +939,138 @@ async function handleExportJson() {
 }
 
 // ════════════════════════════════════════════════════════════
-// PROFILE IMPORT
+// PROFILE SAVE & SYNC
 // ════════════════════════════════════════════════════════════
 
 /**
- * Handles the hidden file-input change event to import a Fillosophy
- * JSON profile.  Validates structure, confirms overwrites, persists to
- * chrome.storage + backend, and refreshes the Profiles tab UI.
- *
- * @param {Event} event - The file-input 'change' event.
+ * Saves the edited profile details from the preview form to local storage and syncs to Supabase.
  */
-async function handleImportJson(event) {
-  const profilesStatus  = document.getElementById('profiles-tab-status');
-  const importFileInput = document.getElementById('import-file-input');
+async function handleSaveProfile() {
+  const profilesStatus = document.getElementById('profiles-tab-status');
+  if (profilesStatus) setStatus(profilesStatus, '', '');
 
-  // ── Guard: no file selected ───────────────────────────────────────────────
-  const file = event.target.files?.[0];
-  if (!file) return;
-
-  // ── Validate file extension ───────────────────────────────────────────────
-  if (!file.name.endsWith('.json')) {
-    setStatus(profilesStatus, '✗ Please select a valid .json file', 'error');
-    if (importFileInput) importFileInput.value = '';
-    return;
-  }
-
-  // ── Read and parse ────────────────────────────────────────────────────────
-  let parsed;
+  let activeProfileName = 'personal';
   try {
-    const text = await file.text();
-    parsed = JSON.parse(text);
-
-    // Validate required top-level keys
-    if (!parsed.profile_name || !parsed.profile_data) {
-      throw new Error('Missing required fields: profile_name or profile_data');
-    }
-
-    // Validate profile_data has at least one expected key
-    const requiredKeys  = ['full_name', 'email', 'skills'];
-    const hasValidShape = requiredKeys.some((k) => k in parsed.profile_data);
-    if (!hasValidShape) {
-      throw new Error('File does not match Fillosophy profile format');
-    }
+    const active = await getActiveProfile();
+    if (active) activeProfileName = active;
   } catch (err) {
-    setStatus(profilesStatus, `✗ Invalid file: ${err.message}`, 'error');
-    if (importFileInput) importFileInput.value = '';
-    return;
+    console.warn('[Fillosophy] Failed to get active profile name:', err.message);
   }
 
-  // ── Overwrite confirmation ────────────────────────────────────────────────
-  try {
-    const existing = await getProfile(parsed.profile_name);
-    if (existing) {
-      const confirmed = confirm(
-        `A profile named "${parsed.profile_name}" already exists. Overwrite it?`
-      );
-      if (!confirmed) {
-        console.log('[Fillosophy] Import cancelled by user (overwrite declined).');
-        if (importFileInput) importFileInput.value = '';
-        return;
-      }
+  // Get flat values
+  const getValue = (id) => {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  };
+
+  const full_name = getValue('profile-field-name');
+  const preferred_name = getValue('profile-field-pref-name');
+  const email = getValue('profile-field-email');
+  const phone = getValue('profile-field-phone');
+  const address = getValue('profile-field-address');
+  const date_of_birth = getValue('profile-field-dob');
+  const gender = getValue('profile-field-gender');
+  const degree = getValue('profile-field-degree');
+  const institution = getValue('profile-field-institution');
+  const cgpa = getValue('profile-field-cgpa');
+  const graduation_year = getValue('profile-field-grad-year');
+
+  const links = getValue('profile-field-links')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const skills = getValue('profile-field-skills')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  // Parse JSON list fields
+  const parseJSON = (id, fieldName) => {
+    const el = document.getElementById(id);
+    if (!el) return [];
+    const val = el.value.trim();
+    if (!val) return [];
+    try {
+      return JSON.parse(val);
+    } catch (err) {
+      throw new Error(`Invalid JSON syntax in ${fieldName} field.`);
     }
-  } catch (lookupErr) {
-    // Non-fatal — proceed with import even if lookup fails
-    console.warn('[Fillosophy] Profile lookup failed, proceeding with import:', lookupErr.message);
-  }
+  };
 
-  // ── Save to chrome.storage ────────────────────────────────────────────────
+  let experience = [];
+  let projects = [];
+  let certifications = [];
+
   try {
-    await saveProfile(parsed.profile_name, parsed.profile_data);
-    await setActiveProfile(parsed.profile_name);
-    currentProfile = parsed.profile_data;
-    console.log(`[Fillosophy] Profile saved to chrome.storage: ${parsed.profile_name}`);
-  } catch (storageErr) {
-    setStatus(profilesStatus, `✗ Import failed: ${storageErr.message}`, 'error');
-    if (importFileInput) importFileInput.value = '';
+    experience = parseJSON('profile-field-experience', 'Experience');
+    projects = parseJSON('profile-field-projects', 'Projects');
+    certifications = parseJSON('profile-field-certifications', 'Certs');
+  } catch (parseErr) {
+    if (profilesStatus) setStatus(profilesStatus, `✗ ${parseErr.message}`, 'error');
     return;
   }
 
-  // ── Update the UI ─────────────────────────────────────────────────────────
-  displayProfile(parsed.profile_data);
-  setActiveProfileChip(parsed.profile_name);
+  const phoneObj = {
+    full: phone,
+    country_code: phone.startsWith('+') ? phone.split(' ')[0] : '+91',
+    country_code_numeric: phone.startsWith('+') ? phone.split(' ')[0].replace('+', '') : '91',
+    number_only: phone.startsWith('+') ? phone.split(' ').slice(1).join('').replace(/[^0-9]/g, '') : phone.replace(/[^0-9]/g, '')
+  };
 
-  // ── Invalidate cached field mapping (same as profile-switch logic) ────────
-  fieldMapping       = {};
+  const profileData = {
+    full_name: full_name || null,
+    preferred_name: preferred_name || null,
+    email: email || null,
+    phone: phone ? phoneObj : null,
+    address: address || null,
+    date_of_birth: date_of_birth || null,
+    gender: gender || null,
+    degree: degree || null,
+    institution: institution || null,
+    cgpa: cgpa ? Number(cgpa) : null,
+    graduation_year: graduation_year ? Number(graduation_year) : null,
+    links,
+    skills,
+    experience,
+    projects,
+    certifications
+  };
+
+  // ── Save to local storage ────────────────────────────────────────────────
+  try {
+    await saveProfile(activeProfileName, profileData);
+    currentProfile = profileData;
+    console.log(`[Fillosophy] Profile saved locally: ${activeProfileName}`);
+  } catch (storageErr) {
+    if (profilesStatus) setStatus(profilesStatus, `✗ Save failed: ${storageErr.message}`, 'error');
+    return;
+  }
+
+  // ── Invalidate cached field mapping (forces fresh match on next Autofill open) ──
+  fieldMapping = {};
   lastMatchTimestamp = null;
 
-  // ── Show success ──────────────────────────────────────────────────────────
-  setStatus(profilesStatus, `✓ Imported profile: ${parsed.profile_name}`, 'success');
-  console.log(`[Fillosophy] Profile imported: ${parsed.profile_name}`);
-
-  // ── Sync to backend (non-blocking) ────────────────────────────────────────
+  // ── Sync to backend (Supabase) ───────────────────────────────────────────
+  if (profilesStatus) setStatus(profilesStatus, 'Saving and syncing...', '');
   try {
     const res = await fetch(IMPORT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        profile_name: parsed.profile_name,
-        profile_data: parsed.profile_data,
+        profile_name: activeProfileName,
+        profile_data: profileData,
       }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    console.log('[Fillosophy] Backend sync successful for imported profile.');
+    if (profilesStatus) setStatus(profilesStatus, '✓ Profile saved and synced successfully!', 'success');
+    console.log(`[Fillosophy] Profile synced: ${activeProfileName}`);
   } catch (syncErr) {
-    console.warn('[Fillosophy] Backend sync failed, profile saved locally only:', syncErr.message);
+    console.warn('[Fillosophy] Backend sync failed:', syncErr.message);
+    if (profilesStatus) {
+      setStatus(profilesStatus, '✓ Profile saved locally, but backend sync failed (server offline).', 'success');
+    }
   }
-
-  // ── Reset file input so the same file can be re-imported ──────────────────
-  if (importFileInput) importFileInput.value = '';
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1056,7 +1078,7 @@ async function handleImportJson(event) {
 // ════════════════════════════════════════════════════════════
 
 /**
- * Populates the readonly preview fields in the Profiles tab with extracted
+ * Populates the preview fields in the Profiles tab with extracted
  * profile data.
  *
  * @param {Object} profile - Structured profile dict returned by /extract.
@@ -1067,7 +1089,7 @@ function displayProfile(profile) {
     const el = document.getElementById(id);
     if (!el) return;
     if (value == null || value === '' || value === 'null') {
-      el.value = '—';
+      el.value = '';
     } else {
       el.value = value;
     }
@@ -1077,16 +1099,46 @@ function displayProfile(profile) {
     ? profile.phone.full
     : profile.phone;
 
-  set('profile-field-name',   profile.full_name ?? '—');
-  set('profile-field-email',  profile.email     ?? '—');
-  set('profile-field-phone',  phoneDisplay      ?? '—');
-  set('profile-field-cgpa',   profile.cgpa      ?? '—');
-  set('profile-field-degree', profile.degree    ?? '—');
+  set('profile-field-name',        profile.full_name ?? '');
+  set('profile-field-pref-name',   profile.preferred_name ?? '');
+  set('profile-field-email',       profile.email ?? '');
+  set('profile-field-phone',       phoneDisplay ?? '');
+  set('profile-field-address',     profile.address ?? '');
+  set('profile-field-dob',         profile.date_of_birth ?? '');
+  set('profile-field-gender',      profile.gender ?? '');
+  set('profile-field-degree',      profile.degree ?? '');
+  set('profile-field-institution', profile.institution ?? '');
+  set('profile-field-cgpa',        profile.cgpa ?? '');
+  set('profile-field-grad-year',   profile.graduation_year ?? '');
+
+  // Links list
+  set('profile-field-links',
+    Array.isArray(profile.links)
+      ? profile.links.join(', ')
+      : (profile.links ?? '')
+  );
+
+  // Skills list
   set('profile-field-skills',
     Array.isArray(profile.skills)
       ? profile.skills.join(', ')
-      : (profile.skills ?? '—')
+      : (profile.skills ?? '')
   );
+
+  // JSON textarea fields
+  const setJSON = (id, obj) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try {
+      el.value = obj ? JSON.stringify(obj, null, 2) : '[]';
+    } catch (err) {
+      el.value = '[]';
+    }
+  };
+
+  setJSON('profile-field-experience', profile.experience ?? []);
+  setJSON('profile-field-projects', profile.projects ?? []);
+  setJSON('profile-field-certifications', profile.certifications ?? []);
 
   console.log('[Fillosophy] Profile displayed in Profiles tab');
 }

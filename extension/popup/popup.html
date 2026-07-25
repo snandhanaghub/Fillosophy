@@ -138,33 +138,73 @@
         <!-- Unified Profile Picker Container -->
         <div class="profile-picker" id="profiles-profile-picker"></div>
 
-
-
         <!-- Field preview -->
         <div class="section-block">
           <span class="section-label">PROFILE PREVIEW</span>
           <div class="preview-fields">
             <div class="preview-row">
               <label class="preview-label">Name</label>
-              <input class="preview-input" id="profile-field-name" type="text" value="Aditya Jain" readonly />
+              <input class="preview-input" id="profile-field-name" type="text" />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">Pref Name</label>
+              <input class="preview-input" id="profile-field-pref-name" type="text" />
             </div>
             <div class="preview-row">
               <label class="preview-label">Email</label>
-              <input class="preview-input" id="profile-field-email" type="text" value="aditya@example.com" readonly />
+              <input class="preview-input" id="profile-field-email" type="email" />
             </div>
             <div class="preview-row">
-              <label class="preview-label">CGPA</label>
-              <input class="preview-input" id="profile-field-cgpa" type="text" value="9.2 / 10" readonly />
+              <label class="preview-label">Phone</label>
+              <input class="preview-input" id="profile-field-phone" type="text" />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">Address</label>
+              <input class="preview-input" id="profile-field-address" type="text" />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">DOB</label>
+              <input class="preview-input" id="profile-field-dob" type="text" placeholder="YYYY-MM-DD" />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">Gender</label>
+              <input class="preview-input" id="profile-field-gender" type="text" />
             </div>
             <div class="preview-row">
               <label class="preview-label">Degree</label>
-              <input class="preview-input" id="profile-field-degree" type="text" value="B.Tech Computer Science"
-                readonly />
+              <input class="preview-input" id="profile-field-degree" type="text" />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">College</label>
+              <input class="preview-input" id="profile-field-institution" type="text" />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">CGPA</label>
+              <input class="preview-input" id="profile-field-cgpa" type="text" />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">Grad Year</label>
+              <input class="preview-input" id="profile-field-grad-year" type="text" />
+            </div>
+            <div class="preview-row">
+              <label class="preview-label">Links</label>
+              <input class="preview-input" id="profile-field-links" type="text" placeholder="URLs separated by comma" />
             </div>
             <div class="preview-row">
               <label class="preview-label">Skills</label>
-              <input class="preview-input" id="profile-field-skills" type="text" value="Python, FastAPI, React, SQL"
-                readonly />
+              <input class="preview-input" id="profile-field-skills" type="text" placeholder="Skills separated by comma" />
+            </div>
+            <div class="preview-row" style="align-items: flex-start;">
+              <label class="preview-label" style="margin-top: 6px;">Experience</label>
+              <textarea class="preview-textarea" id="profile-field-experience" placeholder="JSON array: [{role, company, duration, description}]"></textarea>
+            </div>
+            <div class="preview-row" style="align-items: flex-start;">
+              <label class="preview-label" style="margin-top: 6px;">Projects</label>
+              <textarea class="preview-textarea" id="profile-field-projects" placeholder="JSON array: [{name, description, url}]"></textarea>
+            </div>
+            <div class="preview-row" style="align-items: flex-start;">
+              <label class="preview-label" style="margin-top: 6px;">Certs</label>
+              <textarea class="preview-textarea" id="profile-field-certifications" placeholder="JSON array: [strings] or [{name, authority, year}]"></textarea>
             </div>
           </div>
         </div>
@@ -178,17 +218,17 @@
             </svg>
             Export JSON
           </button>
-          <button class="btn btn-outline" id="import-btn">
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-              <path d="M6.5 4V12M3.5 7l3-3 3 3M1 3V1.5A1.5 1.5 0 012.5 0h8A1.5 1.5 0 0112 1.5V3" stroke="currentColor"
-                stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+          <button class="btn btn-primary" id="save-profile-btn">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/>
+              <polyline points="7 3 7 8 15 8"/>
             </svg>
-            Import
+            Save Profile
           </button>
-          <input type="file" id="import-file-input" accept=".json" style="display:none">
         </div>
 
-        <!-- Status message for profiles tab actions (export / import) -->
+        <!-- Status message for profiles tab actions (export / save) -->
         <p class="upload-status" id="profiles-tab-status"></p>
       </section>
 
