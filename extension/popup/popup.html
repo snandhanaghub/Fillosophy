@@ -194,19 +194,23 @@
               <label class="preview-label">Skills</label>
               <input class="preview-input" id="profile-field-skills" type="text" placeholder="Skills separated by comma" />
             </div>
-            <div class="preview-row" style="align-items: flex-start;">
-              <label class="preview-label" style="margin-top: 6px;">Experience</label>
-              <textarea class="preview-textarea" id="profile-field-experience" placeholder="JSON array: [{role, company, duration, description}]"></textarea>
-            </div>
-            <div class="preview-row" style="align-items: flex-start;">
-              <label class="preview-label" style="margin-top: 6px;">Projects</label>
-              <textarea class="preview-textarea" id="profile-field-projects" placeholder="JSON array: [{name, description, url}]"></textarea>
-            </div>
-            <div class="preview-row" style="align-items: flex-start;">
-              <label class="preview-label" style="margin-top: 6px;">Certs</label>
-              <textarea class="preview-textarea" id="profile-field-certifications" placeholder="JSON array: [strings] or [{name, authority, year}]"></textarea>
+            <div class="preview-row">
+              <label class="preview-label">Certs</label>
+              <input class="preview-input" id="profile-field-certifications" type="text" placeholder="Certifications separated by comma" />
             </div>
           </div>
+        </div>
+
+        <div class="list-section-block">
+          <span class="section-label">Experience</span>
+          <div id="profile-experience-list"></div>
+          <button type="button" class="btn btn-outline btn-small" id="add-experience-btn">+ Add Experience</button>
+        </div>
+
+        <div class="list-section-block">
+          <span class="section-label">Projects</span>
+          <div id="profile-projects-list"></div>
+          <button type="button" class="btn btn-outline btn-small" id="add-project-btn">+ Add Project</button>
         </div>
 
         <!-- Action buttons -->

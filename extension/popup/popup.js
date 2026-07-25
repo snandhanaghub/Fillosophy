@@ -197,6 +197,27 @@ document.addEventListener('DOMContentLoaded', () => {
     saveProfileBtn.addEventListener('click', handleSaveProfile);
   }
 
+  // ── Wire Add Experience & Add Project buttons ──────────────────
+  const addExpBtn = document.getElementById('add-experience-btn');
+  if (addExpBtn) {
+    addExpBtn.addEventListener('click', () => {
+      const container = document.getElementById('profile-experience-list');
+      if (container) {
+        container.appendChild(createExperienceCardElement({}, container.children.length));
+      }
+    });
+  }
+
+  const addProjBtn = document.getElementById('add-project-btn');
+  if (addProjBtn) {
+    addProjBtn.addEventListener('click', () => {
+      const container = document.getElementById('profile-projects-list');
+      if (container) {
+        container.appendChild(createProjectCardElement({}, container.children.length));
+      }
+    });
+  }
+
   // ── Wire Switch profile link (Autofill tab → Profiles tab) ─────
   const switchProfileBtn = document.getElementById('switch-profile-btn');
   if (switchProfileBtn) {
@@ -985,31 +1006,34 @@ async function handleSaveProfile() {
     .map(s => s.trim())
     .filter(Boolean);
 
-  // Parse JSON list fields
-  const parseJSON = (id, fieldName) => {
-    const el = document.getElementById(id);
-    if (!el) return [];
-    const val = el.value.trim();
-    if (!val) return [];
-    try {
-      return JSON.parse(val);
-    } catch (err) {
-      throw new Error(`Invalid JSON syntax in ${fieldName} field.`);
-    }
-  };
+  const certifications = getValue('profile-field-certifications')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
 
-  let experience = [];
-  let projects = [];
-  let certifications = [];
+  // Extract Experience array from DOM card inputs
+  const experience = [];
+  const expCards = document.querySelectorAll('#profile-experience-list .list-item-card');
+  expCards.forEach(card => {
+    const role = card.querySelector('.exp-role').value.trim();
+    const company = card.querySelector('.exp-company').value.trim();
+    const duration = card.querySelector('.exp-duration').value.trim();
+    const description = card.querySelector('.exp-desc').value.trim();
+    experience.push({ role, company, duration, description });
+  });
 
-  try {
-    experience = parseJSON('profile-field-experience', 'Experience');
-    projects = parseJSON('profile-field-projects', 'Projects');
-    certifications = parseJSON('profile-field-certifications', 'Certs');
-  } catch (parseErr) {
-    if (profilesStatus) setStatus(profilesStatus, `✗ ${parseErr.message}`, 'error');
-    return;
-  }
+  // Extract Projects array from DOM card inputs
+  const projects = [];
+  const projCards = document.querySelectorAll('#profile-projects-list .list-item-card');
+  projCards.forEach(card => {
+    const name = card.querySelector('.proj-name').value.trim();
+    const description = card.querySelector('.proj-desc').value.trim();
+    const techRaw = card.querySelector('.proj-tech').value.trim();
+    const technologies = techRaw
+      ? techRaw.split(',').map(t => t.trim()).filter(Boolean)
+      : null;
+    projects.push({ name, description, technologies });
+  });
 
   const phoneObj = {
     full: phone,
@@ -1078,9 +1102,7 @@ async function handleSaveProfile() {
 // ════════════════════════════════════════════════════════════
 
 /**
- * Populates the preview fields in the Profiles tab with extracted
- * profile data.
- *
+ * Populates the preview fields in the Profiles tab with extracted profile data.
  * @param {Object} profile - Structured profile dict returned by /extract.
  */
 function displayProfile(profile) {
@@ -1125,22 +1147,155 @@ function displayProfile(profile) {
       : (profile.skills ?? '')
   );
 
-  // JSON textarea fields
-  const setJSON = (id, obj) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    try {
-      el.value = obj ? JSON.stringify(obj, null, 2) : '[]';
-    } catch (err) {
-      el.value = '[]';
-    }
-  };
+  // Certifications list (now flat comma-separated text)
+  set('profile-field-certifications',
+    Array.isArray(profile.certifications)
+      ? profile.certifications.join(', ')
+      : (profile.certifications ?? '')
+  );
 
-  setJSON('profile-field-experience', profile.experience ?? []);
-  setJSON('profile-field-projects', profile.projects ?? []);
-  setJSON('profile-field-certifications', profile.certifications ?? []);
+  // Render Experience & Projects cards dynamically
+  renderExperienceCards(profile.experience ?? []);
+  renderProjectCards(profile.projects ?? []);
 
   console.log('[Fillosophy] Profile displayed in Profiles tab');
+}
+
+/**
+ * Renders the Experience cards in the Profiles tab.
+ * @param {Array} experienceList
+ */
+function renderExperienceCards(experienceList) {
+  const container = document.getElementById('profile-experience-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const list = Array.isArray(experienceList) ? experienceList : [];
+  list.forEach((exp, index) => {
+    container.appendChild(createExperienceCardElement(exp, index));
+  });
+}
+
+/**
+ * Creates an Experience card DOM element.
+ */
+function createExperienceCardElement(exp, index) {
+  const card = document.createElement('div');
+  card.className = 'list-item-card';
+  card.dataset.index = index;
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'btn-card-delete';
+  deleteBtn.innerHTML = '×';
+  deleteBtn.ariaLabel = 'Remove experience';
+  deleteBtn.addEventListener('click', () => {
+    card.remove();
+  });
+  card.appendChild(deleteBtn);
+
+  const fields = [
+    { label: 'Role', class: 'exp-role', value: exp.role ?? '' },
+    { label: 'Company', class: 'exp-company', value: exp.company ?? '' },
+    { label: 'Duration', class: 'exp-duration', value: exp.duration ?? '' },
+    { label: 'Description', class: 'exp-desc', value: exp.description ?? '', isTextarea: true }
+  ];
+
+  fields.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'preview-row-stacked';
+
+    const label = document.createElement('label');
+    label.className = 'card-label';
+    label.textContent = f.label;
+    row.appendChild(label);
+
+    if (f.isTextarea) {
+      const input = document.createElement('textarea');
+      input.className = `card-textarea ${f.class}`;
+      input.value = f.value;
+      row.appendChild(input);
+    } else {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = `card-input ${f.class}`;
+      input.value = f.value;
+      row.appendChild(input);
+    }
+    card.appendChild(row);
+  });
+
+  return card;
+}
+
+/**
+ * Renders the Project cards in the Profiles tab.
+ * @param {Array} projectsList
+ */
+function renderProjectCards(projectsList) {
+  const container = document.getElementById('profile-projects-list');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const list = Array.isArray(projectsList) ? projectsList : [];
+  list.forEach((proj, index) => {
+    container.appendChild(createProjectCardElement(proj, index));
+  });
+}
+
+/**
+ * Creates a Project card DOM element.
+ */
+function createProjectCardElement(proj, index) {
+  const card = document.createElement('div');
+  card.className = 'list-item-card';
+  card.dataset.index = index;
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.type = 'button';
+  deleteBtn.className = 'btn-card-delete';
+  deleteBtn.innerHTML = '×';
+  deleteBtn.ariaLabel = 'Remove project';
+  deleteBtn.addEventListener('click', () => {
+    card.remove();
+  });
+  card.appendChild(deleteBtn);
+
+  const techValue = Array.isArray(proj.technologies)
+    ? proj.technologies.join(', ')
+    : (proj.technologies ?? '');
+
+  const fields = [
+    { label: 'Project Name', class: 'proj-name', value: proj.name ?? '' },
+    { label: 'Description', class: 'proj-desc', value: proj.description ?? '', isTextarea: true },
+    { label: 'Technologies (comma-separated)', class: 'proj-tech', value: techValue }
+  ];
+
+  fields.forEach(f => {
+    const row = document.createElement('div');
+    row.className = 'preview-row-stacked';
+
+    const label = document.createElement('label');
+    label.className = 'card-label';
+    label.textContent = f.label;
+    row.appendChild(label);
+
+    if (f.isTextarea) {
+      const input = document.createElement('textarea');
+      input.className = `card-textarea ${f.class}`;
+      input.value = f.value;
+      row.appendChild(input);
+    } else {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = `card-input ${f.class}`;
+      input.value = f.value;
+      row.appendChild(input);
+    }
+    card.appendChild(row);
+  });
+
+  return card;
 }
 
 // ════════════════════════════════════════════════════════════

@@ -933,3 +933,101 @@ body {
 #app.auth-mode .panels {
   display: none !important;
 }
+
+/* Dynamic list section and card styling */
+.list-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.list-item-card {
+  position: relative;
+  border: var(--border-thin);
+  border-radius: var(--radius-sm);
+  background: #F7F9EF;
+  padding: 10px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.btn-card-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  border: var(--border-thin);
+  background: var(--bg-white);
+  border-radius: 50%;
+  color: var(--dark-navy);
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.btn-card-delete:hover {
+  background: #FFEBEB;
+  color: #C53030;
+}
+
+.preview-row-stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.card-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--dark-navy-80);
+}
+
+.card-input {
+  width: 100%;
+  border: 1px solid rgba(10, 31, 68, 0.15);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--font);
+  font-size: 11.5px;
+  color: var(--dark-navy);
+  background: var(--bg-white);
+  outline: none;
+}
+
+.card-input:focus {
+  border-color: var(--dark-navy);
+}
+
+.card-textarea {
+  width: 100%;
+  height: 44px;
+  resize: vertical;
+  border: 1px solid rgba(10, 31, 68, 0.15);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: var(--font);
+  font-size: 11.5px;
+  color: var(--dark-navy);
+  background: var(--bg-white);
+  outline: none;
+}
+
+.card-textarea:focus {
+  border-color: var(--dark-navy);
+}
+
+.btn-small {
+  padding: 6px 12px;
+  font-size: 11px;
+  width: auto;
+  align-self: flex-start;
+  border-radius: var(--radius-sm);
+}
