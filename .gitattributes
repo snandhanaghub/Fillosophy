@@ -1,0 +1,25 @@
+# Fillosophy — Git line-ending normalization
+# Ensures consistent LF in the repo; Git converts to CRLF on Windows checkout.
+
+* text=auto
+
+# Explicitly LF for source files
+*.py    text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.tex   text eol=lf
+*.sql   text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.txt   text eol=lf
+.env*   text eol=lf
+
+# Binary files — never touch line endings
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.zip   binary
