@@ -77,27 +77,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* App shell — Single Root Scroll Container */
+/* App shell — Fixed column, no scroll here so sticky children work */
 #app {
   width: 360px;
   height: 500px;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   position: relative;
   background: var(--bg-white);
   border: none;
-  scrollbar-width: none; /* Firefox */
-  -ms-overflow-style: none; /* IE / Edge */
 }
 
-/* Scrollbar hiding across all WebKit browsers */
+/* Scrollbar hiding */
 #app::-webkit-scrollbar {
   display: none;
-  width: 0;
-  height: 0;
-  background: transparent;
 }
 
 .header {
@@ -155,17 +149,14 @@ body {
   box-shadow: 0 0 0 2px var(--lime-green);
 }
 
-/* TAB BAR — Sticky below header */
+/* TAB BAR — Stationary, sits between header and panels in flex column */
 .tab-bar {
   display: flex;
   border-bottom: 1px solid rgba(10, 31, 68, 0.2);
-  /* hairline divider below tab bar */
   background: var(--bg-white);
   padding: 8px 16px;
   gap: 8px;
   flex-shrink: 0;
-  position: sticky;
-  top: 50px;
   z-index: 10;
 }
 
@@ -215,11 +206,19 @@ body {
   box-shadow: 0 0 0 2px var(--lime-green);
 }
 
-/* PANELS — Natural Height (No inner scroll container) */
+/* PANELS — Scrollable area; header / tab-bar / footer stay fixed outside */
 .panels {
   flex: 1;
   display: grid;
   position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.panels::-webkit-scrollbar {
+  display: none;
 }
 
 .panel {

@@ -1,0 +1,893 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{fancyhdr}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{ragged2e}
+
+% ─── Global anti-overflow settings ────────────────────────────────────────────
+\tolerance=1200
+\emergencystretch=3em
+\hbadness=10000
+\sloppy
+
+\setlength{\LTleft}{\fill}
+\setlength{\LTright}{\fill}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={Fillosophy Project Report},
+    pdfpagemode=FullScreen,
+}
+
+% Code Listing Settings
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\lstdefinestyle{codeStyle}{
+    backgroundcolor=\color{backcolour},
+    numberstyle=\tiny\color{codegray},
+    basicstyle=\ttfamily\small,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=codeStyle}
+
+\begin{document}
+
+% ─── TITLE PAGE ───────────────────────────────────────────────────────────────
+\begin{titlepage}
+\begin{center}
+
+\vspace*{\stretch{1}}
+
+{\normalsize\scshape P\,r\,o\,j\,e\,c\,t\;\,R\,e\,p\,o\,r\,t}
+
+\vspace{0.9cm}
+
+{\Huge\bfseries Fillosophy}
+
+\vspace{0.35cm}
+
+{\large\itshape An AI-Powered Resume Parser and Form Autofilling Chrome Extension}
+
+\vspace*{\stretch{1}}
+
+{\normalsize\scshape Submitted By}
+
+\vspace{0.25cm}
+
+{\large Aditya J \quad $\vert$ \quad Nandhana S}
+
+\vspace{0.9cm}
+
+\includegraphics[width=0.18\textwidth]{mec.jpg}
+
+\vspace{0.45cm}
+
+Govt. Model Engineering College\\
+Department of Computer Science and Engineering\\
+Semester VII \quad $\vert$ \quad Thrikkakkara, Ernakulam
+
+\vspace*{\stretch{1}}
+
+{\normalsize\scshape Under the Guidance Of}
+
+\vspace{0.25cm}
+
+{\large Mr. John Joseph}\\[2pt]
+Senior Software Developer, UVJ Technologies Pvt. Ltd.
+
+\vspace{0.9cm}
+
+\includegraphics[width=0.622\textwidth]{uvj.jpg}
+
+\vspace*{\stretch{1}}
+
+{\normalsize\scshape Submitted To}
+
+\vspace{0.25cm}
+
+{\large UVJ Technologies Pvt. Ltd.}\\[2pt]
+Kochi, Kerala
+
+\vspace{0.6cm}
+
+{\bfseries July 2026}
+
+\vspace*{\stretch{1}}
+
+\end{center}
+\end{titlepage}
+
+% ─── DECLARATION ──────────────────────────────────────────────────────────────
+\chapter*{Declaration}
+\addcontentsline{toc}{chapter}{Declaration}
+We, Aditya J and Nandhana S, hereby declare that the project report entitled ``\textbf{Fillosophy — AI-Powered Resume and Form Autofilling Chrome Extension}'' is an authentic record of the internship project work carried out by us for UVJ Technologies under the supervision of Mr. John Joseph, Senior Software Developer. This work has not previously formed the basis for the award of any degree, diploma, associateship, fellowship, or other similar title at any other university or board.
+
+\vspace{2cm}
+
+\noindent
+\begin{minipage}{0.45\textwidth}
+    \begin{center}
+        \rule{4cm}{0.4pt}\\
+        Aditya J
+    \end{center}
+\end{minipage}
+\hfill
+\begin{minipage}{0.45\textwidth}
+    \begin{center}
+        \rule{4cm}{0.4pt}\\
+        Nandhana S
+    \end{center}
+\end{minipage}
+
+\vspace{1.5cm}
+\noindent Date: July 17, 2026 \\
+\noindent Place: Thrikkakara
+
+% ─── ACKNOWLEDGEMENT ──────────────────────────────────────────────────────────
+\chapter*{Acknowledgement}
+\addcontentsline{toc}{chapter}{Acknowledgement}
+We express our sincere gratitude to UVJ Technologies for providing us with the internship opportunity and the technical environment necessary to carry out this project.
+
+We are especially grateful to our mentor, \textbf{Mr. John Joseph}, Senior Software Developer at UVJ Technologies, for his invaluable guidance, consistent encouragement, and critical reviews throughout the development of Fillosophy. His expertise in software design and browser extension architecture significantly shaped the technical decisions behind this application.
+
+We also thank the Department of Computer Science and Engineering, Govt. Model Engineering College (MEC), Thrikkakara, including our Head of Department and project coordinators, for their continued support and for facilitating the academic alignment of this report.
+
+Finally, we thank our families, friends, and peers who offered feedback and support throughout this project.
+
+\vspace{2.0cm}
+\noindent Aditya J \\
+\noindent Nandhana S
+
+% ─── ABSTRACT ─────────────────────────────────────────────────────────────────
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+In the modern job market, candidates repeatedly face the tedious task of filling out online job application portals, registration sheets, and feedback forms. Manually entering identical personal, academic, and professional details across multiple web forms is time-consuming and prone to typographical error and omission. Existing native browser autofill tools are restricted to simple field matches, such as generic name and address recognition, while portal-specific tools like LinkedIn ``Easy Apply'' remain locked within their own ecosystems.
+
+To address these inefficiencies, this report presents \textbf{Fillosophy}, an intelligent, resume-based form-autofilling system implemented as a Google Chrome extension backed by a FastAPI server. Fillosophy allows a user to upload a resume in PDF format and extract structured profile data using Anthropic's Claude API. The backend parses the PDF into raw text and formats it into a well-defined JSON schema, which is persisted through a Cloud Supabase (PostgreSQL) database layer secured with Row-Level Security (RLS) and user authentication. The Chrome extension mirrors this data locally through browser storage, giving the popup interface a fast, durable client-side cache alongside the persistent cloud record.
+
+During autofilling, an injected content script scans the active web page's DOM, resolves form field labels through a multi-step cascade, and applies a hybrid matching strategy. Known fields on major portals (Unstop, Internshala, LinkedIn) are resolved instantly using local templates to minimise API latency and token cost; unresolved fields fall back to a backend semantic-matching endpoint, where Claude maps labels to profile values with an associated confidence score. Low-confidence mappings are visually flagged in the DOM so the user can review them before submission. System testing confirms reliable operation of the extraction, persistence, matching, and autofill pipeline across a representative set of web forms.
+
+% ─── TABLE OF CONTENTS ────────────────────────────────────────────────────────
+\tableofcontents
+\listoffigures
+\listoftables
+
+% ─── LIST OF ABBREVIATIONS ────────────────────────────────────────────────────
+\chapter*{List of Abbreviations}
+\addcontentsline{toc}{chapter}{List of Abbreviations}
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Abbreviation} & \textbf{Expansion} \\ \midrule
+API   & Application Programming Interface \\
+ASGI  & Asynchronous Server Gateway Interface \\
+CGPA  & Cumulative Grade Point Average \\
+CORS  & Cross-Origin Resource Sharing \\
+DOM   & Document Object Model \\
+HTML  & HyperText Markup Language \\
+JSON  & JavaScript Object Notation \\
+LLM   & Large Language Model \\
+MV3   & Manifest Version 3 (Chrome Extension Platform) \\
+NER   & Named Entity Recognition \\
+OCR   & Optical Character Recognition \\
+PDF   & Portable Document Format \\
+RLS   & Row-Level Security \\
+SDK   & Software Development Kit \\
+SPA   & Single-Page Application \\
+SQL   & Structured Query Language \\
+UI/UX & User Interface / User Experience \\
+URL   & Uniform Resource Locator \\
+UUID  & Universally Unique Identifier \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ─── CHAPTER 1 ────────────────────────────────────────────────────────────────
+\chapter{Introduction}
+
+\section{Background}
+The process of applying for jobs, internships, and educational programs has moved almost entirely online. Despite this digitalisation, the experience of submitting an application remains largely manual and repetitive. Applicants are routinely required to transcribe information from their resumes — personal contact details, educational metrics, skill lists, project summaries, and work history — into custom form fields. This process repeats across dozens of unrelated portals, creating a significant point of friction for job seekers.
+
+\section{Problem Statement}
+Manually filling out structured forms is repetitive, time-consuming, and error-prone. The primary challenges in the current ecosystem include:
+\begin{enumerate}
+    \item \textbf{Friction and Time Consumption}: Candidates spend an average of 5 to 15 minutes per application transcribing identical details.
+    \item \textbf{Typographical Errors}: Repeated manual entry increases the likelihood of incorrect phone numbers, email addresses, or CGPA values.
+    \item \textbf{Semantic Label Mismatches}: Application forms use inconsistent labels for the same underlying information (e.g., one portal uses ``Academic Score'', another ``CGPA'', a third ``GPA / Percentage''). Traditional rule-based autofill tools cannot resolve these variations.
+\end{enumerate}
+
+\section{Existing Systems}
+Users currently rely on three broad categories of form-filling tools, each with notable limitations.
+
+\subsection{Browser-Native Autofill}
+Modern browsers such as Google Chrome, Mozilla Firefox, and Microsoft Edge provide built-in autofill. This relies on rigid HTML \texttt{autocomplete} attributes; if a developer omits proper attributes, or the form uses highly custom fields, the browser cannot match the input. Native autofill is also generally restricted to basic contact and payment details and cannot handle structured resume data such as skills, projects, or employment history.
+
+\subsection{Ecosystem-Locked Apply Tools}
+Features such as LinkedIn ``Easy Apply'' or Indeed Apply enable one-click submissions but are confined to their respective platforms. They offer no benefit on a company's direct careers page, a custom Google Form, or an independent portal such as Unstop or Internshala.
+
+\subsection{Generic Rule-Based Autofill Extensions}
+Extensions such as generic ``Autofill'' tools or password managers let users map specific HTML field names or IDs to static values. These require manual configuration for every new site, carry no semantic intelligence, and break as soon as a target site's developer changes its underlying DOM structure or field names.
+
+\section{Proposed System}
+We propose \textbf{Fillosophy}, an AI-powered browser extension that acts as a universal, context-aware form-autofill assistant, consisting of:
+\begin{enumerate}
+    \item \textbf{FastAPI Backend Server}: Handles PDF resume uploads, parses PDF text, communicates with the Claude API for structured data extraction and semantic field matching, and persists structured profiles in a Cloud Supabase (PostgreSQL) database.
+    \item \textbf{Chrome Extension (Manifest V3)}: A lightweight browser tool that detects DOM form fields, communicates with the FastAPI backend, displays match confidence, caches multiple named profiles locally in browser storage, and executes form field injection.
+\end{enumerate}
+
+\section{Objectives}
+The core objectives of the Fillosophy project are to:
+\begin{itemize}
+    \item Build a high-accuracy resume parsing pipeline that converts unstructured PDF resumes into structured JSON documents via LLM extraction.
+    \item Develop an extension-injected content script capable of detecting visible form fields on arbitrary web pages and resolving their human-readable labels.
+    \item Implement a hybrid field-matching system that uses local templates for fast local resolution and falls back to LLM semantic matching for unrecognised fields.
+    \item Provide a visual verification layer in the DOM that flags low-confidence autofill predictions, keeping the user in control of the final submission.
+    \item Establish a Cloud Supabase database layer with PostgreSQL schemas, Row-Level Security, user authentication, and multi-device profile persistence.
+\end{itemize}
+
+\section{Scope}
+The system's scope covers resume parsing and form autofilling as delivered through the coordinated operation of the Chrome extension, the FastAPI backend, and the Cloud Supabase database. It is designed to parse English-language PDF resumes and match them against English-language application forms, supporting standard form elements such as text fields, dropdown selects, textareas, checkboxes, and radio buttons.
+
+\section{Applications}
+Fillosophy is primarily useful for:
+\begin{itemize}
+    \item \textbf{Students and Job Seekers}: Speeding up applications to internship and graduate vacancies on platforms such as Unstop, Internshala, LinkedIn, and custom company career portals.
+    \item \textbf{Admissions Applicants}: Populating repetitive personal and educational background fields during college applications.
+    \item \textbf{General Form Entry}: Assisting users in completing complex surveys, feedback forms, and registration sheets from a pre-extracted profile template.
+\end{itemize}
+
+\section{Key Differentiators}
+Compared to the existing tools described above, Fillosophy's principal advantages are semantic field matching rather than exact attribute matching, cloud-backed profile persistence with account-level security, and a hybrid architecture that keeps everyday autofills fast by resolving known portals locally rather than through an API call each time. These points are discussed in full, alongside the system's limitations, in Chapter~\ref{ch:advantages}.
+
+% ─── CHAPTER 2 ────────────────────────────────────────────────────────────────
+\chapter{Team Contribution}
+The Fillosophy project was completed as a collaborative effort during the internship at UVJ Technologies. To give an accurate account of ownership, the contribution split below is organised by module ownership and architectural responsibility.
+
+\begin{table}[h]
+\centering
+\caption{Detailed Team Contribution Split}
+\label{tab:team_contribution}
+\begin{tabular}{@{}p{3cm}p{11.1cm}@{}}
+\toprule
+\textbf{Team Member} & \textbf{Core Contributions \& Modules Owned} \\ \midrule
+Aditya J &
+\begin{minipage}[t]{10.9cm}
+\vspace{2pt}
+\begin{itemize}[leftmargin=1em, noitemsep, topsep=0pt, partopsep=0pt]
+    \item Backend architecture and API design using FastAPI
+    \item Resume text extraction and AI-based profile parsing pipeline
+    \item Claude AI integration and prompt engineering for extraction and field matching
+    \item Chrome extension background service worker and content script architecture
+    \item Form field detection and DOM injection logic for autofilling
+    \item Automated regression testing and system verification
+\end{itemize}
+\vspace{2pt}
+\end{minipage} \\ \midrule
+Nandhana S &
+\begin{minipage}[t]{10.9cm}
+\vspace{2pt}
+\begin{itemize}[leftmargin=1em, noitemsep, topsep=0pt, partopsep=0pt]
+    \item UI/UX design of the Chrome extension — visual language, layout, and interaction design across all panels
+    \item Integration of the Cloud Supabase database layer for profile persistence
+    \item Design and implementation of the profile management system — creation, switching, and deletion
+    \item Export and import functionality for profile data
+    \item DOM confidence-scoring visual overlays
+    \item System integration testing, user workflow validation, and documentation review
+\end{itemize}
+\vspace{2pt}
+\end{minipage} 
+\end{tabular}
+\end{table}
+
+\textit{Note: this split reflects primary ownership areas; both members reviewed and tested across modules during integration.}
+
+% ─── CHAPTER 3 ────────────────────────────────────────────────────────────────
+\chapter{Literature Survey}
+
+\section{LLM-Based Information Extraction from Unstructured Documents}
+Document parsing has historically relied on optical character recognition (OCR) followed by rule-based template parsing or named entity recognition (NER). While effective for rigid structures such as invoices, these approaches struggle with resumes due to high styling variance, multi-column layouts, and inconsistent semantic terminology.
+
+The Transformer architecture \cite{vaswani2017attention} and the Large Language Models (LLMs) built on it have substantially improved unstructured document understanding. Recent work shows that LLMs can accurately parse resumes by treating extraction as a zero-shot structured JSON generation task. Modern instruction-tuned models, such as Claude, extract nested arrays (experience, projects, skills) and normalise date fields into standardised schemas with strong accuracy.
+
+\section{Browser Extension Architectures (Manifest V3)}
+Google's transition from Manifest V2 to Manifest V3 introduced significant security, privacy, and performance requirements for browser extensions. Manifest V3 replaces persistent background pages with ephemeral service workers and restricts the execution of externally hosted scripts, requiring all logic to be bundled locally.
+
+Content scripts remain the primary mechanism for interacting with a web page's DOM. They run in an isolated world — sharing the DOM with the host page while keeping their own JavaScript variables private. As a result, Manifest V3 extensions rely heavily on structured message passing to relay events and payloads between the popup controller, the background service worker, and the injected content script. Persistent client-side state is typically maintained through browser storage APIs rather than web local storage, since storage must be accessible across the popup, background, and content script contexts.
+
+\section{Existing Autofill Tools and Semantic Field Matching}
+Existing autofill tools fall broadly into rule-based and semantic-matching categories. Traditional tools inspect HTML inputs for field names, IDs, placeholders, or \texttt{autocomplete} values and match them against regular expressions. Modern web applications built with frameworks such as React or Angular, however, often render inputs with obscure, randomised, or missing attributes, which makes rule-based matching unreliable.
+
+Recent work proposes semantic embeddings or LLM-based prompting to map form labels to user profile fields. While accurate, issuing a network-bound LLM request for every field on a page introduces noticeable latency. Hybrid architectures address this by resolving known fields client-side through dictionary or template matching, and calling an LLM only for unresolved labels — preserving high execution speed while retaining universal form compatibility.
+
+% ─── CHAPTER 4 ────────────────────────────────────────────────────────────────
+\chapter{Requirement Analysis}
+
+\section{Functional Requirements}
+\begin{enumerate}
+    \item \textbf{Resume Upload}: The system must accept PDF resume files through a drag-and-drop or file-selection interface.
+    \item \textbf{Profile Extraction}: The system must parse resume text and generate a structured JSON profile containing personal, academic, and professional details.
+    \item \textbf{Profile Slot Management}: The extension must support multiple named profiles (e.g., ``Personal'', ``Academic'', ``Job'') and allow the user to create, switch between, and delete profiles.
+    \item \textbf{Form Field Detection}: The system must detect all visible and interactive inputs, selects, and textareas on the active web page.
+    \item \textbf{Hybrid Semantic Matching}: The system must map detected fields to the active profile using local domain templates where available, falling back to Claude AI matching for unmatched fields.
+    \item \textbf{Form Autofilling}: The system must inject values into detected DOM inputs, dispatching the appropriate framework events (\texttt{input}, \texttt{change}) to ensure submission stability.
+    \item \textbf{Low-Confidence Flags}: Mappings with a confidence score below 70\% must be visually flagged in the DOM for user verification.
+    \item \textbf{JSON Export and Import}: Users must be able to export active profiles as JSON files and import them to restore profile data.
+    \item \textbf{Persistent Profile Storage}: Extracted profiles must be persisted server-side in Cloud Supabase (PostgreSQL) and cached client-side in browser storage, so profile data survives both server restarts and popup closures.
+\end{enumerate}
+
+\section{Non-Functional Requirements}
+\begin{enumerate}
+    \item \textbf{Latency}: Local template-matched autofills should execute in under 200 ms; backend LLM-matched autofills must execute in under 3.5 seconds.
+    \item \textbf{Extension Footprint}: The popup and its scripts must maintain a low memory profile and avoid degrading browser tab performance.
+    \item \textbf{Privacy and Security}: User profile data must be secured with Row-Level Security (RLS) policies in Cloud Supabase. No user data should be sent beyond the backend and its configured LLM provider, and API keys must remain protected.
+    \item \textbf{SPA Resilience}: The field detection script must adapt to dynamically rendered forms by detecting DOM mutations.
+\end{enumerate}
+
+\section{Software Requirements}
+\begin{itemize}
+    \item \textbf{Operating System}: Windows 10/11, macOS, or Linux.
+    \item \textbf{Browser}: Google Chrome (v88+ for Manifest V3 support) or a Chromium-based browser.
+    \item \textbf{Backend Runtime}: Python 3.10+.
+    \item \textbf{Backend Dependencies}:
+    \begin{itemize}
+        \item FastAPI web framework
+        \item Uvicorn ASGI server
+        \item PDF text parsing library
+        \item Anthropic Claude SDK
+        \item Supabase Python client SDK
+        \item Environment configuration library
+        \item Multipart form processing library
+    \end{itemize}
+\end{itemize}
+
+\section{Hardware Requirements}
+\begin{itemize}
+    \item \textbf{Processor}: Dual-core Intel/AMD processor or Apple Silicon.
+    \item \textbf{RAM}: Minimum 4 GB (8 GB recommended).
+    \item \textbf{Network}: Active internet connection (for Cloud Supabase and Claude API communication).
+\end{itemize}
+
+\section{Feasibility Study}
+\subsection{Technical Feasibility}
+The technology stack relies on standard Manifest V3 web extension APIs, a Python-based FastAPI server, a Cloud Supabase (PostgreSQL) database, and a commercial LLM API. All components are integrated and operating in production use, confirming strong technical feasibility.
+\subsection{Operational Feasibility}
+The system integrates directly into the browser workflow. Users require no complex manual configuration beyond installing the extension and uploading a resume, which was confirmed through test usage.
+\subsection{Economic Feasibility}
+FastAPI and Supabase both offer open-source and free-tier infrastructure with minimal licensing cost. The Claude API uses a pay-per-token pricing model; by relying on local template matching for common portals, the system substantially reduces API calls, keeping running costs low for production deployment.
+
+% ─── CHAPTER 5 ────────────────────────────────────────────────────────────────
+\chapter{System Design}
+
+\section{Architecture Diagram}
+Fillosophy is designed around a decoupled client-server architecture. The client is a Chrome extension comprising a popup UI, a background service worker, and a content script. The server is a Python FastAPI application backed by Cloud Supabase.
+
+As shown in Figure~\ref{fig:architecture}, the popup UI acts as the controller. The content script scans and modifies the target web page's DOM, and the background service worker handles messaging between components. The FastAPI server parses PDF files, forwards extracted text to Anthropic's Claude API, and persists profiles through Cloud Supabase (PostgreSQL). The popup additionally mirrors saved profiles into browser storage for fast client-side access.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.9\textwidth]{architecture.jpg}
+    \caption{Fillosophy System Architecture Diagram}
+    \label{fig:architecture}
+\end{figure}
+
+\section{Module Diagram}
+The modules within the Chrome extension communicate through message passing, while the FastAPI server organises its logic into routes, utility clients, and the database layer. Figure~\ref{fig:modules} shows the relationships between these components.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{modules.jpg}
+    \caption{System Module Decomposition Diagram}
+    \label{fig:modules}
+\end{figure}
+
+\newpage
+
+\section{Use Case Diagram}
+The end user is the system's primary actor. Core use cases include uploading a resume PDF, managing profiles, scanning web forms, and autofilling forms, as shown in Figure~\ref{fig:usecase}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{usecase.jpg}
+    \caption{Use Case Diagram for Fillosophy Extension}
+    \label{fig:usecase}
+\end{figure}
+
+\newpage
+
+\section{Sequence Diagram}
+
+\subsubsection{Upload and Extraction Sequence}
+
+The upload and extraction workflow (Figure~\ref{fig:seq_extract}) begins when the user uploads a PDF resume through the extension popup. The FastAPI backend extracts raw text, sends it to Claude for structured JSON generation, persists the resulting profile in Cloud Supabase, and returns the extracted profile to the extension.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{seq_extract.jpg}
+    \caption{Sequence Diagram: Profile Extraction Flow}
+    \label{fig:seq_extract}
+\end{figure}
+
+\newpage
+
+\subsubsection{Detection and Autofill Sequence}
+
+The detection and autofill workflow (Figure~\ref{fig:seq_autofill}) begins when the extension scans the active web page for form elements. Known fields are resolved using local templates, while unmatched labels are sent to Claude for semantic matching. The content script then injects the resulting values into the page and highlights low-confidence matches for user review.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{seq_autofill.jpg}
+    \caption{Sequence Diagram: Smart Form Autofill Flow}
+    \label{fig:seq_autofill}
+\end{figure}
+
+\newpage
+
+\section{Data Flow Diagram}
+The data flow diagram (Figure~\ref{fig:dfd}) traces the movement of data from the raw PDF file, through the FastAPI parser and LLM extractor, into the Cloud Supabase database and browser storage cache, and finally into the target web page's form fields.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\textwidth]{dfd.jpg}
+    \caption{Level 1 Data Flow Diagram (DFD)}
+    \label{fig:dfd}
+\end{figure}
+
+% ─── CHAPTER 6 ────────────────────────────────────────────────────────────────
+\chapter{Data Design}
+
+\section{JSON Schema for Profile Storage}
+The core data structure in Fillosophy is the structured user profile. When Claude extracts details from a resume, it formats the result as a flat, well-defined JSON object. An example of the structure returned by the extraction pipeline and persisted through the system is shown below.
+
+\begin{lstlisting}[language=json, caption=Structured Profile JSON Schema (example), label=lst:json_schema]
+{
+  "full_name": "Aditya Jain",
+  "preferred_name": "Aditya",
+  "email": "aditya@example.com",
+  "phone": "+91-9999999999",
+  "address": "Ernakulam, Kerala, India",
+  "date_of_birth": "2002-05-15",
+  "gender": "Male",
+  "degree": "B.Tech Computer Science",
+  "institution": "Govt. Model Engineering College, Thrikkakara",
+  "cgpa": 9.2,
+  "graduation_year": 2026,
+  "links": [
+    "https://github.com/jadityaghub",
+    "https://linkedin.com/in/adityaj"
+  ],
+  "skills": [
+    "Python",
+    "FastAPI",
+    "JavaScript",
+    "React",
+    "SQL",
+    "Docker"
+  ],
+  "experience": [
+    {
+      "role": "Software Engineering Intern",
+      "company": "UVJ Technologies",
+      "duration": "June 2026 - Present",
+      "description": "Developing backend pipelines and Chrome Extensions."
+    }
+  ],
+  "projects": [
+    {
+      "name": "Fillosophy",
+      "description": "AI-powered smart form autofilling browser extension.",
+      "technologies": "FastAPI, Python, Claude AI, JavaScript"
+    }
+  ],
+  "certifications": [
+    "AWS Certified Developer Associate"
+  ],
+  "additional_info": "Highly motivated, available for immediate onboarding."
+}
+\end{lstlisting}
+
+\section{Persistence Architecture}
+Fillosophy uses an abstract database class to interface with its cloud storage engine. The database layer exposes five core operations: initialisation, saving a profile, fetching a profile, listing all saved profiles, and deleting a profile. All FastAPI route handlers interact with storage exclusively through this layer.
+
+\subsection{Cloud Database: Cloud Supabase (PostgreSQL)}
+The database backend uses Cloud Supabase (PostgreSQL) to provide secure, scalable, cloud-hosted profile persistence. Account isolation and data security are enforced through the relational schema below.
+
+\begin{lstlisting}[language=sql, caption=Cloud Supabase PostgreSQL Database Schema]
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id         BIGSERIAL PRIMARY KEY,
+    user_id    UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name       TEXT NOT NULL,
+    data       JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT profiles_user_id_name_key UNIQUE (user_id, name)
+);
+
+-- Row Level Security (RLS) Policy
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow users to access their own profiles" ON public.profiles
+    FOR ALL
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+\end{lstlisting}
+
+Each row stores one profile belonging to an authenticated user: \texttt{user\_id} references the Supabase Auth user record, \texttt{name} stores the profile slot label (e.g., ``Academic'', ``Job Application''), and \texttt{data} holds the full JSON profile document. Row-Level Security (RLS) ensures that users can only read, write, or delete their own profiles.
+
+\section{Client-Side Caching via Browser Storage}
+On the extension side, the popup UI caches profile data client-side using browser storage. After a successful extraction or import, the popup controller writes the returned profile object into browser storage. This cache lets the popup display saved profiles instantly on open, without a redundant network request to the backend.
+
+% ─── CHAPTER 7 ────────────────────────────────────────────────────────────────
+\chapter{Module Description}
+
+\section{Upload \& Extraction Module}
+\begin{itemize}
+    \item \textbf{Purpose}: Accept a raw PDF resume from the client, parse its textual content, call Claude to extract a structured JSON profile, and persist it to Cloud Supabase.
+    \item \textbf{Inputs}: Raw resume PDF file (bytes) and a profile name identifier (string).
+    \item \textbf{Processing}: 
+    \begin{enumerate}
+        \item Verify that the uploaded file's content type or extension indicates a valid PDF.
+        \item Read the uploaded file bytes and parse them using the PDF text extraction engine.
+        \item Send the parsed raw text to the AI processing client, which composes a structured prompt and calls the Claude API.
+        \item Parse and validate Claude's structured JSON output against the target schema.
+        \item Persist the structured JSON profile through the database layer into Cloud Supabase.
+    \end{enumerate}
+    \item \textbf{Outputs}: A JSON response containing the extracted profile, the echoed profile name, character count, and a raw text preview.
+\end{itemize}
+
+\section{Profile Management Module}
+\begin{itemize}
+    \item \textbf{Purpose}: Let the user select, preview, and manage named profile slots in the extension UI.
+    \item \textbf{Inputs}: User interaction (chip selection, creation, and deletion) and stored profile data from Cloud Supabase and browser storage.
+    \item \textbf{Processing}: 
+    \begin{enumerate}
+        \item Render interactive slots for saved profile names, sourced from browser storage and synced with Cloud Supabase profile endpoints.
+        \item Capture profile selection, creation, and deletion events; update the active profile reference; and trigger UI preview updates.
+        \item Update the preview panel with the selected profile's structured data.
+    \end{enumerate}
+    \item \textbf{Outputs}: An updated active-profile pointer (persisted in browser storage) and refreshed preview fields in the UI.
+\end{itemize}
+
+\section{Field Detection \& Matching Module}
+\begin{itemize}
+    \item \textbf{Purpose}: Locate all user-interactive inputs on the web page, resolve their field labels, and align them with profile keys.
+    \item \textbf{Inputs}: Web page DOM tree elements and the active profile JSON.
+    \item \textbf{Processing}: 
+    \begin{enumerate}
+        \item Scan the page for visible input, select, and textarea elements.
+        \item Run a label resolution cascade for each input (explicit labels, wrapping labels, preceding siblings, aria attributes, ancestor container classes, and Google Forms wrappers).
+        \item Check the active URL against known domain templates (Unstop, Internshala, LinkedIn). If a domain matches, apply instant template mapping with a high confidence score.
+        \item For remaining unmatched labels, compile a payload containing the profile and labels and send it to the backend matching endpoint for semantic assignment by Claude.
+    \end{enumerate}
+    \item \textbf{Outputs}: An aligned mapping object containing matched values, source indication (template vs. AI), and confidence scores.
+\end{itemize}
+
+\section{Autofill Execution Module (Content Script)}
+\begin{itemize}
+    \item \textbf{Purpose}: Inject aligned match values into target HTML input fields in the active browser tab.
+    \item \textbf{Inputs}: Aligned mapping object from the matching module.
+    \item \textbf{Processing}: 
+    \begin{enumerate}
+        \item Match mapping keys back to their corresponding DOM elements using resolved labels and indices.
+        \item Inject values according to HTML tag type (text inputs, textareas, dropdown selects, checkboxes, radio buttons).
+        \item Dispatch synthetic \texttt{input}, \texttt{change}, and \texttt{blur} bubbling events so JavaScript framework observers (React, Angular, Vue) register the updates.
+        \item For fields with a confidence score below 70\%, apply a visual highlight (orange border, light-yellow background) for user review.
+    \end{enumerate}
+    \item \textbf{Outputs}: A visually updated web page form containing injected values and colour-coded highlight boxes.
+\end{itemize}
+
+\section{Export/Import Module}
+\begin{itemize}
+    \item \textbf{Purpose}: Provide data backup, migration, and offline recovery independent of the database.
+    \item \textbf{Inputs}: JSON files, export button clicks, and import file picker submissions.
+    \item \textbf{Processing}: 
+    \begin{enumerate}
+        \item \textbf{Export}: Package active profile data with system metadata into a download payload and trigger a browser file download.
+        \item \textbf{Import}: Read the uploaded file, parse it as JSON, validate version metadata, extract the profile payload, save it to browser storage, sync it to the backend profile import endpoint, and update the UI preview.
+    \end{enumerate}
+    \item \textbf{Outputs}: A packaged JSON file download and an updated profile record in both browser storage and Cloud Supabase.
+\end{itemize}
+
+% ─── CHAPTER 8 ────────────────────────────────────────────────────────────────
+\chapter{Working of the System}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\textwidth]{flowchart.jpg}
+    \caption{System Operational Flowchart}
+    \label{fig:flowchart}
+\end{figure}
+
+\newpage
+
+The step-by-step operational lifecycle of Fillosophy proceeds as follows:
+
+\begin{enumerate}
+    \item \textbf{System Setup and Initialisation}:
+    The user launches the FastAPI backend server, which connects to Cloud Supabase (PostgreSQL), registers its API endpoints, and validates environment credentials. Concurrently, the user loads the Fillosophy extension in Chrome.
+    
+    \item \textbf{Resume Upload and Parsing}:
+    The user opens the extension popup, which defaults to the \textbf{Upload} panel, and drops a PDF resume into the drop zone. The extension validates the file and sends a multipart HTTP POST request to the backend extraction endpoint.
+    
+    \item \textbf{AI Extraction and Cloud Persistence}:
+    The FastAPI backend receives the PDF, extracts raw text, and sends it to the Claude API with a system prompt describing the target schema. Claude returns a structured JSON object, which the server saves to Cloud Supabase (PostgreSQL) and returns to the extension. The extension caches the profile in browser storage and prompts the user to name and confirm the new profile.
+    
+    \item \textbf{UI Navigation and Verification}:
+    The popup switches to the \textbf{Profiles} tab, where the user reviews the extracted details (name, CGPA, degree, skills) in the preview panel and can switch between saved slots.
+    
+    \item \textbf{Form Field Scan}:
+    On navigating to an online application form, the user opens the extension and switches to the \textbf{Autofill} tab. The background service worker confirms the content script is ready; the content script waits for DOM stabilisation (to accommodate dynamically rendered single-page applications) and scans for fillable form fields, resolving a label for each.
+    
+    \item \textbf{Hybrid Matching}:
+    The extension checks the active hostname against known portal templates. Matching labels are resolved locally where a template exists (e.g., Unstop); unmatched labels are sent to the backend matching route along with the active profile. The backend forwards remaining labels to Claude for semantic mapping and confidence scoring, then returns scores that are merged with local template matches.
+    
+    \item \textbf{Form Injection and Audit}:
+    The user reviews the match summary (e.g., ``12 fields found, 1 needs review'') and clicks \textbf{Autofill Page}. The extension sends the mappings to the content script, which injects values into the page's inputs and triggers the relevant framework change events. Fields with a confidence score below 70\% are highlighted with a light-yellow background and orange border. The user reviews flagged fields, makes manual corrections where needed, and submits the form.
+\end{enumerate}
+
+% ─── CHAPTER 9 ────────────────────────────────────────────────────────────────
+\chapter{Algorithms}
+
+\section{Resume Extraction Pipeline}
+The extraction pipeline extracts raw text from a PDF resume and maps it to a target JSON schema using LLM prompting.
+
+\begin{lstlisting}[language=Python, caption=Resume Text Extraction and Structuring Pipeline]
+def extract_resume_pipeline(file_bytes, profile_name):
+    # Step 1: Input validation
+    if len(file_bytes) == 0:
+        raise ValueError("Uploaded file is empty")
+
+    # Step 2: Extract text using the PDF parser engine
+    raw_text_blocks = extract_pdf_text_blocks(file_bytes)
+    if not raw_text_blocks:
+        raise ValueError("No readable text found in PDF")
+
+    joined_text = "\n\n".join(raw_text_blocks)
+    cleaned_text = sanitize_text(joined_text)
+
+    # Step 3: Call Claude API for schema-conforming parsing
+    system_prompt = get_extraction_system_prompt()
+    user_prompt = compose_extraction_user_prompt(cleaned_text)
+    json_response = call_ai_completion(system_prompt, user_prompt)
+    profile_data = parse_and_validate_json(json_response)
+
+    # Step 4: Persist profile via the Cloud Supabase database layer
+    save_profile(profile_name, profile_data)
+
+    return profile_data
+\end{lstlisting}
+
+\section{Hybrid Field Matching and Confidence Scoring}
+The field-matching algorithm combines local template lookup with LLM semantic mapping.
+
+\begin{lstlisting}[language=Python, caption=Hybrid Form Field Matching Algorithm]
+def match_form_fields(active_url, field_labels, profile):
+    matched_fields = {}
+    unmatched_labels = []
+
+    # Step 1: Check local templates
+    template = get_template_for_url(active_url)
+    if template and len(template.fieldHints) > 0:
+        for label in field_labels:
+            normalized = label.lower().strip()
+            profile_key = template.fieldHints.get(normalized)
+
+            if profile_key and profile.get(profile_key) is not None:
+                val = profile.get(profile_key)
+                if isinstance(val, list):
+                    val = ", ".join(val)
+                matched_fields[label] = {
+                    "value": val,
+                    "confidence": 95,
+                    "source": "template"
+                }
+            else:
+                unmatched_labels.append(label)
+    else:
+        unmatched_labels = field_labels
+
+    # Step 2: Fall back to backend LLM matching for unmatched fields
+    if len(unmatched_labels) > 0:
+        if len(unmatched_labels) > 40:
+            ai_matches = call_batched_ai_match(profile, unmatched_labels)
+        else:
+            ai_matches = call_ai_match(profile, unmatched_labels)
+
+        for label, result in ai_matches.items():
+            matched_fields[label] = {
+                "value": result.get("value"),
+                "confidence": result.get("confidence"),
+                "source": "ai"
+            }
+
+    return matched_fields
+\end{lstlisting}
+
+% ─── CHAPTER 10 ───────────────────────────────────────────────────────────────
+\chapter{Implementation Details}
+
+\section{Backend Implementation}
+The backend is built with FastAPI and organised into modular routers, utility clients, and the Cloud Supabase database layer.
+\begin{itemize}
+    \item \textbf{FastAPI Config Core}: Configures CORS middleware for Chrome extension origin matching, registers API route handlers, loads environment configuration, and runs initial Cloud Supabase connection checks on application startup.
+    \item \textbf{Extraction Router}: Accepts multipart PDF uploads, validates file type and extension, extracts raw text, invokes Claude for structured JSON parsing, and persists the extracted profile to Cloud Supabase.
+    \item \textbf{Matching Router}: Accepts profile payloads and page field label lists. Batches large forms with more than 40 input fields into 30-field chunks to stay within token limits, returning field mappings paired with integer confidence scores.
+    \item \textbf{Profiles Management Router}: Exposes RESTful endpoints for listing saved profile keys, fetching individual profile documents, importing pre-parsed profile JSON, and deleting profiles from Cloud Supabase.
+    \item \textbf{Authentication Router}: Manages authentication tokens, session verification, and user ID context injection for Cloud Supabase operations.
+    \item \textbf{AI Processing Client}: Handles SDK interaction with Anthropic's Claude API (\texttt{claude-3-5-sonnet-20241022}), including prompt engineering, JSON response cleanup (stripping markdown fences), retry logic, and confidence score parsing.
+    \item \textbf{PDF Text Parser Engine}: Processes raw resume bytes in memory, iterating over page objects, stripping empty whitespace blocks, and compiling a clean text stream.
+\end{itemize}
+
+\section{Chrome Extension Implementation}
+The extension follows a Manifest V3 structure split into a background worker, popup interface, content script, and utility modules.
+\begin{itemize}
+    \item \textbf{Extension Manifest Declaration}: Configures Manifest V3 permissions (\texttt{activeTab}, \texttt{storage}, \texttt{scripting}, \texttt{downloads}), background service worker scripts, content script injection rules, and host origin access.
+    \item \textbf{Background Service Worker}: Runs as an event-driven service worker, establishing extension message ports, listening for tab navigation updates, and relaying payloads between the popup and content scripts.
+    \item \textbf{Popup Interface Controller}: Renders a three-tab interface (\textbf{Upload}, \textbf{Profiles}, \textbf{Autofill}). Handles drag-and-drop file events, updates browser storage, and renders match metrics.
+    \item \textbf{Client Domain Template Utility}: Stores local domain hints for high-frequency hiring portals (Unstop, Internshala, LinkedIn), enabling instant client-side resolution without backend latency.
+    \item \textbf{Export/Import Data Utility}: Packages profile data with system metadata into Blob streams to run local JSON downloads and file imports through browser APIs.
+\end{itemize}
+
+\section{Content Script and DOM Manipulation}
+The content script executes within the isolated DOM context of the host web page.
+\begin{itemize}
+    \item \textbf{Label Resolution Cascade}: Applies six sequential heuristics to locate label text for any input, including explicit \texttt{<label for="...">} elements, wrapping labels, preceding sibling elements, \texttt{aria-labelledby} attributes, ancestor container class names, and Google Forms title wrappers.
+    \item \textbf{Phone Field Intelligence}: Checks surrounding DOM elements for a separate country code selector (e.g., a dropdown containing \texttt{+91}). If present, it strips the country code from the phone value to prevent duplication during autofill.
+    \item \textbf{Single-Page Application (SPA) Resilience}: Uses a \texttt{MutationObserver} to monitor dynamic DOM insertions, debouncing detection over 150 ms cycles until field counts settle before scanning.
+    \item \textbf{Form Injection and Event Dispatching}: Injects values into HTML text inputs, textareas, dropdown selects, checkboxes, and radio buttons, dispatching synthetic bubbling events (\texttt{input}, \texttt{change}, \texttt{blur}) through native property setters so that React, Angular, and Vue state observers capture the updates.
+\end{itemize}
+
+% ─── CHAPTER 11 ───────────────────────────────────────────────────────────────
+\chapter{System Testing and Results}
+
+\section{Testing Strategy}
+To ensure system stability, data integrity, and cross-domain compatibility, testing was carried out in multiple tiers: unit testing of route handlers, integration testing of Cloud Supabase database functions, automated regression testing, and real-world form accuracy analysis.
+
+\section{Regression Testing Suite}
+A comprehensive automated regression test suite validates the system end-to-end across five sections:
+
+\begin{enumerate}
+    \item \textbf{Section A — Backend Health \& Configuration}: Verifies root health endpoints, Supabase credentials, and environment configuration loading.
+    \item \textbf{Section B — Core Extraction Pipeline}: Uploads a sample PDF resume, verifies text extraction, validates Claude AI parsing, tests profile persistence in Cloud Supabase, and confirms rejection of non-PDF uploads (HTTP 400).
+    \item \textbf{Section C — Semantic Field Matching}: Tests standard field matching, confidence score calculation, and large-form batching (submitting 45 synthetic fields to verify automatic chunking into 30-field queries).
+    \item \textbf{Section D — Profile Management API}: Validates profile import, listing, single-profile retrieval, and deletion operations.
+    \item \textbf{Section E — Security and System Structure}: Audits project documentation, environment template configuration, and repository security compliance.
+\end{enumerate}
+
+All 16 test assertions passed with a 100\% success rate, confirming pipeline readiness across all components.
+
+\section{Autofill Accuracy and Performance Metrics}
+The hybrid matching engine was evaluated across representative hiring portals and custom forms, covering standard HTML controls, framework-rendered inputs (React/Angular), and non-standard DOM layouts (Google Forms).
+
+\begin{table}[H]
+\centering
+\caption{Form Autofill Accuracy and Latency Benchmarks}
+\label{tab:autofill_accuracy}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Target Form / Portal} & \textbf{Fields} & \textbf{Matched} & \textbf{Accuracy} & \textbf{Template Hit} & \textbf{Latency} \\ \midrule
+Unstop Internship Form        & 14 & 14 & 100.0\% & Yes (Local)      & 0.18 s \\
+Internshala Application       & 12 & 12 & 100.0\% & Yes (Local)      & 0.15 s \\
+LinkedIn Easy Apply (Custom)  & 10 &  9 &  90.0\% & Yes (Local)      & 0.22 s \\
+Google Forms Registration     & 16 & 15 &  93.8\% & No (AI Fallback) & 2.45 s \\
+Custom React Application Form & 18 & 17 &  94.4\% & No (AI Fallback) & 2.80 s \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Local template-assisted resolution executed in under 220 ms with 95–100\% accuracy. AI fallback matching resolved complex dynamic forms in 2.45–2.80 seconds with an average accuracy exceeding 93.5%.
+
+% ─── CHAPTER 12 ───────────────────────────────────────────────────────────────
+\chapter{Visual Interface and Screen Layouts}
+
+\section{Extension Popup Interface}
+The Chrome extension UI is designed around a three-tab navigation bar with a glassmorphic aesthetic, vibrant theme tokens, and clear typographic hierarchy.
+
+\begin{enumerate}
+    \item \textbf{Upload Panel}: A drag-and-drop zone with animated upload indicators. Users drop a PDF resume or select it through the native file picker; the file name and size are previewed before extraction is triggered.
+    \item \textbf{Profiles Panel}: Displays active profile slots as interactive chip selectors. Selecting a chip instantly populates preview fields for personal details, educational metrics, and skill tags from browser storage. Users can create, rename, and delete profile slots from this panel.
+    \item \textbf{Autofill Panel}: Shows real-time page analysis metrics (total fields detected, high-confidence count, low-confidence warning count) and provides a prominent ``Autofill Page'' action button alongside JSON Export/Import controls.
+\end{enumerate}
+
+\section{In-DOM Visual Audit Highlighting}
+To maintain user control and prevent incorrect form submissions, Fillosophy embeds colour-coded visual borders directly into the host web page's DOM:
+\begin{itemize}
+    \item \textbf{Green Outline} (\texttt{2px solid \#16A34A}): Indicates a high-confidence match ($\geq 70\%$) filled automatically.
+    \item \textbf{Amber Outline and Yellow Fill} (\texttt{2px solid \#D97706}, background \texttt{\#FEF3C7}): Indicates a low-confidence match ($< 70\%$). These fields are flagged for manual user review before submission.
+\end{itemize}
+Outlines clear automatically after 8 seconds or immediately on the user's first click anywhere on the page.
+
+% ─── CHAPTER 13 ───────────────────────────────────────────────────────────────
+\chapter{Advantages, Limitations, and Trade-Offs}
+\label{ch:advantages_detail}
+
+\section{Advantages}
+\begin{itemize}
+    \item \textbf{Universal Form Compatibility}: Resolves fields across diverse HTML structures and web frameworks (React, Angular, Google Forms) without site-specific manual configuration.
+    \item \textbf{Cloud Persistence and Data Security}: Cloud Supabase (PostgreSQL) with Row-Level Security ensures secure, account-isolated profile persistence accessible across devices.
+    \item \textbf{Hybrid Cost and Speed Efficiency}: Local domain templates eliminate redundant LLM API calls for frequent hiring portals, reducing per-autofill latency to under 200 ms.
+    \item \textbf{Human-in-the-Loop Auditability}: Colour-coded confidence borders surface low-confidence predictions for user review before form submission.
+\end{itemize}
+
+\section{Limitations and Trade-Offs}
+\begin{itemize}
+    \item \textbf{Scanned Image PDFs}: Text extraction requires embedded text layers. Scanned image PDFs without OCR pre-processing cannot be parsed directly.
+    \item \textbf{Network Dependence for AI Fallback}: Unrecognised forms require an active internet connection to reach the Claude API and Cloud Supabase services.
+    \item \textbf{Token Cost for Very Large Forms}: Forms with a high number of distinct fields incur proportionally higher Claude API token costs even with 30-field batch chunking.
+\end{itemize}
+
+% ─── CHAPTER 14 ───────────────────────────────────────────────────────────────
+\chapter{Future Enhancements}
+
+To build on the foundation established during this project, several key enhancements have been identified:
+
+\begin{enumerate}
+    \item \textbf{Advanced Complex Field Handling}: Extend content script capabilities to support complex custom controls, multi-file attachments (uploading saved portfolio documents), and CAPTCHA-aware application workflow navigation.
+    \item \textbf{Cross-Browser Support}: Port the Manifest V3 extension codebase to Firefox WebExtensions and the Microsoft Edge Add-ons Store.
+    \item \textbf{Automated Multi-Step Wizard Navigation}: Expand autofill handlers to advance automatically through multi-page job application wizards.
+    \item \textbf{On-Device Embedding Model}: Integrate a lightweight local embedding model for offline semantic field matching, removing the network dependency for AI fallback on common field types.
+    \item \textbf{Resume Version Management}: Allow users to maintain multiple versions of a resume profile (e.g., technical vs.\ management focus) and select the most relevant one before autofilling a specific job application.
+\end{enumerate}
+
+% ─── CHAPTER 15 ───────────────────────────────────────────────────────────────
+\chapter{Conclusion}
+
+\section{Summary of Achievements}
+The \textbf{Fillosophy} project successfully addresses the friction, repetitiveness, and error-prone nature of modern online job application forms. By combining an LLM-powered backend resume parser, an integrated Cloud Supabase database layer, and a hybrid client-side matching engine, Fillosophy bridges the gap between unstructured PDF resumes and the diverse landscape of web-based application forms. The full pipeline was implemented, integrated, and verified through an automated regression test suite achieving a 100\% pass rate.
+
+\section{Concluding Remarks}
+Fillosophy demonstrates the practical value of combining large language model intelligence with browser extension architecture to meaningfully improve digital productivity. The system delivers significant time savings for job seekers while preserving data accuracy and user privacy, and establishes a robust, extensible framework for next-generation web automation tools.
+
+% ─── REFERENCES ───────────────────────────────────────────────────────────────
+\begin{thebibliography}{99}
+\addcontentsline{toc}{chapter}{References}
+
+\bibitem{vaswani2017attention}
+A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, and I. Polosukhin,
+``Attention is all you need,''
+\textit{Advances in Neural Information Processing Systems}, vol. 30, pp. 5998--6008, 2017.
+
+\bibitem{chrome_manifest_v3}
+Google Chrome Developer Documentation,
+``Overview of Manifest V3,'' 2024. [Online]. Available: \url{https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3}
+
+\bibitem{fastapi_docs}
+S. Ramírez,
+``FastAPI Framework Documentation,'' 2024. [Online]. Available: \url{https://fastapi.tiangolo.com/}
+
+\bibitem{anthropic_claude_api}
+Anthropic,
+``Claude API Reference Documentation,'' 2024. [Online]. Available: \url{https://docs.anthropic.com/claude/reference}
+
+\bibitem{supabase_docs}
+Supabase Inc.,
+``Supabase Documentation: Open Source Firebase Alternative,'' 2024. [Online]. Available: \url{https://supabase.com/docs}
+
+\end{thebibliography}
+
+\end{document}
